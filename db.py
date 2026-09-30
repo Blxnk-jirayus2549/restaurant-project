@@ -127,7 +127,8 @@ def get_item(item_id):
 
 def create_item(data):
     sql = "INSERT INTO menu_item (name, category, price, is_available) VALUES (%s, %s, %s, %s)"
-    params = (data["name"], data["category"], data["price"], data["is_available"])
+    is_avail = int(data.get("is_available", 1))
+    params = (data["name"], data["category"], data["price"], is_avail)
     return run_command(sql, params)
     """เพิ่ม เมนูอาหาร ใหม่ — data มีคีย์: name, category, price, is_available"""
     # TODO: INSERT INTO menu_item (...) VALUES (%s, ...)
@@ -137,7 +138,8 @@ def create_item(data):
 def update_item(item_id, data):
     sql = ("UPDATE menu_item SET name=%s, category=%s, price=%s, is_available=%s "
            "WHERE item_id=%s")
-    params = (data["name"], data["category"], data["price"], data["is_available"], item_id)
+    is_avail = int(data.get("is_available", 1))
+    params = (data["name"], data["category"], data["price"], is_avail, item_id)
     return run_command(sql, params)
     """แก้ไข เมนูอาหาร ตาม item_id"""
     # TODO: UPDATE menu_item SET ... WHERE item_id=%s
