@@ -151,11 +151,27 @@ def delete_item(item_id):
     _todo("delete_item")
 
 # ---------- ออเดอร์ (food_order) ----------
+
+
+
+
 def search_orders(filters):
-    sql = ("SELECT o.order_id, c.name AS customer_name, o.table_id, "
-           "o.order_time, o.status "
+    sql = ("SELECT "
+           "    o.order_id, "
+           "    o.cust_id, "
+           "    c.name AS customer_name, "
+           "    o.table_id, "
+           "    o.order_time, "
+           "    o.status, "
+           "    IFNULL(totals.total, 0) AS total "
            "FROM food_order o "
-           "INNER JOIN customer c ON o.cust_id = c.cust_id "
+           "LEFT JOIN customer c ON o.cust_id = c.cust_id "
+           "LEFT JOIN ("
+           "    SELECT oi.order_id, SUM(oi.qty * m.price) AS total "
+           "    FROM order_item oi "
+           "    JOIN menu_item m ON oi.item_id = m.item_id "
+           "    GROUP BY oi.order_id"
+           ") totals ON o.order_id = totals.order_id "
            "WHERE 1=1")
     params = []
     if filters.get("cust_id"):
@@ -193,8 +209,19 @@ def get_order(order_id):
 
 def check_table_free(table_id, order_id=None):
     
-        
+    table = run_query("SELECT * FROM dining_table WHERE table_id = %s", (table_id,))
+    if not table:
+        raise ValueError(f"ไม่พบโต๊ะหมายเลข {table_id}")
+
+    target_order_id = order_id or 0
+    sql = ("SELECT COUNT(*) AS n FROM food_order "
+           "WHERE table_id = %s AND status = 'open' AND order_id <> %s")
     
+    result = run_query(sql, (table_id, target_order_id))
+    
+    if result and result[0]["n"] > 0:
+        raise ValueError(f"โต๊ะ {table_id} ยังมีออเดอร์ที่ยังไม่ชำระเงิน")
+    return True
     """ตรวจก่อนเปิดออเดอร์ (status = 'open') — ถ้าไม่ผ่านให้ raise ValueError("ข้อความ")
     (หน้าเว็บจะแสดงข้อความนั้นเป็น alert ให้ผู้ใช้เห็น และไม่บันทึกข้อมูล)
     1) โต๊ะต้องมีอยู่จริง → SELECT ... FROM dining_table WHERE table_id = %s
@@ -207,11 +234,16 @@ def check_table_free(table_id, order_id=None):
 
 
 def create_order(data):
-    if data["status"] == "open":
+    if data.get("status") == "open":
         check_table_free(data["table_id"])
     sql = ("INSERT INTO food_order (cust_id, table_id, order_time, status) "
            "VALUES (%s, %s, %s, %s)")
-    params = (data["cust_id"], data["table_id"], blank_to_none(data["order_time"]), data["status"])
+    params = (
+        blank_to_none(data.get("cust_id")),
+        data["table_id"],
+        blank_to_none(data.get("order_time")),
+        data["status"]
+    )
     return run_command(sql, params)
 
     """เพิ่ม ออเดอร์ ใหม่ — data มีคีย์: cust_id, table_id, order_time, status
@@ -224,11 +256,19 @@ def create_order(data):
 
 
 def update_order(order_id, data):
-    if data["status"] == "open":
+   # 1. เช็กโต๊ะว่างถ้าสถานะออเดอร์ใหม่เป็น 'open' (ส่ง order_id ไปด้วยเพื่อข้ามออเดอร์ตัวเอง)
+    if data.get("status") == "open":
         check_table_free(data["table_id"], order_id)
-    return run_command("UPDATE food_order SET cust_id=%s, table_id=%s, order_time=%s, status=%s "
-                       "WHERE order_id=%s",
-                       (data["cust_id"], data["table_id"], data["order_time"], data["status"], order_id))
+    sql = ("UPDATE food_order SET cust_id=%s, table_id=%s, order_time=%s, status=%s "
+           "WHERE order_id=%s")
+    params = (
+        blank_to_none(data.get("cust_id")),
+        data["table_id"],
+        blank_to_none(data.get("order_time")),
+        data["status"],
+        order_id
+    )
+    return run_command(sql, params)
     """แก้ไข ออเดอร์ ตาม order_id
     คำใบ้:
       1) ถ้า status ใหม่ = 'open' → check_table_free(data["table_id"], order_id)
