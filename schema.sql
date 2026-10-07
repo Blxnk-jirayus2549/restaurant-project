@@ -2,6 +2,20 @@
 --  schema.sql — ระบบร้านอาหาร
 -- ============================================================
 
+-- drop table if exists order_item;
+-- drop table if exists combo;
+-- drop table if exists menu_item;
+-- drop table if exists food_order;
+-- drop table if exists dining_table;
+-- drop table if exists customer;
+
+
+
+
+-- ============================================================
+--  schema.sql — ระบบร้านอาหาร
+-- ============================================================
+
 -- 1. ตารางลูกค้า (customer)
 CREATE TABLE customer (
     cust_id         INT AUTO_INCREMENT PRIMARY KEY,
@@ -65,12 +79,15 @@ CREATE TABLE combo (
 INSERT INTO customer (name, phone, member_tier) VALUES
 ('John Doe', '1234567890', 'vip'),
 ('Jane Smith', '0987654321', 'regular'),
+('Bob Brown', '1112223333', 'vip'),
 ('Alice Johnson', '5555555555', 'regular');
 
 INSERT INTO menu_item (name, category, price, is_available) VALUES
-('Burger', 'Main Course', 5.99, TRUE),
-('Pizza', 'Main Course', 8.99, TRUE),
-('Salad', 'Appetizer', 4.99, TRUE);
+('Burger', 'Appetizer', 80.00, TRUE),
+('Potato Chips', 'Appetizer', 60.00, TRUE),
+('Pepsi', 'Water', 15.00, FALSE),
+('Pizza', 'Main Course', 120.00, TRUE),
+('Salad', 'Appetizer', 60.00, TRUE);
 
 INSERT INTO dining_table (seats, zone) VALUES
 (4, 'A'),
@@ -78,9 +95,9 @@ INSERT INTO dining_table (seats, zone) VALUES
 (6, 'C');
 
 INSERT INTO food_order (cust_id, table_id, order_time, status) VALUES
-(1, 1, '2024-06-01 12:00:00', 'pending'),
-(2, 2, '2024-06-01 12:30:00', 'completed'),
-(3, 3, '2024-06-01 13:00:00', 'in_progress');
+(1, 1, '2024-06-01 12:00:00', 'open'),
+(2, 2, '2024-06-01 12:30:00', 'paid'),
+(3, 3, '2024-06-01 13:00:00', 'open');
 
 INSERT INTO order_item (order_id, item_id, qty, note) VALUES
 (1, 1, 2, 'No onions'),

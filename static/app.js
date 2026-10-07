@@ -69,6 +69,7 @@ const ENTITIES = {
         "label": "หมวดหมู่",
         "type": "select",
         "options": [
+          "",
           "Main Course",
           "Appetizer",
           "Water"
