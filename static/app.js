@@ -27,8 +27,8 @@ const ENTITIES = {
         "type": "select",
         "options": [
           "",
-          "silver",
-          "gold"
+          "regular",
+          "vip"
         ]
       }
     ],
@@ -48,8 +48,8 @@ const ENTITIES = {
         "label": "ระดับ",
         "type": "select",
         "options": [
-          "silver",
-          "gold"
+          "regular",
+          "vip"
         ]
       }
     ]
@@ -67,7 +67,12 @@ const ENTITIES = {
       {
         "key": "category",
         "label": "หมวดหมู่",
-        "type": "text"
+        "type": "select",
+        "options": [
+          "Main Course",
+          "Appetizer",
+          "Water"
+        ]
       }
     ],
     "form": [
@@ -79,7 +84,12 @@ const ENTITIES = {
       {
         "key": "category",
         "label": "หมวดหมู่",
-        "type": "text"
+        "type": "select",
+        "options": [
+          "Main Course",
+          "Appetizer",
+          "Water"
+        ]
       },
       {
         "key": "price",
