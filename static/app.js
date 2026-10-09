@@ -72,7 +72,8 @@ const ENTITIES = {
           "",
           "Main Course",
           "Appetizer",
-          "Water"
+          "Beverage",
+          "combo"
         ]
       }
     ],
@@ -89,7 +90,8 @@ const ENTITIES = {
         "options": [
           "Main Course",
           "Appetizer",
-          "Water"
+          "Beverage",
+          "combo"
         ]
       },
       {

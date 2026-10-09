@@ -209,20 +209,25 @@ def get_order(order_id):
     _todo("get_order")
 
 
-def check_table_free(table_id, order_id=None):
-    
+def check_table_free(table_id, order_id=None, order_time=None):
     table = run_query("SELECT * FROM dining_table WHERE table_id = %s", (table_id,))
     if not table:
         raise ValueError(f"ไม่พบโต๊ะหมายเลข {table_id}")
 
     target_order_id = order_id or 0
-    sql = ("SELECT COUNT(*) AS n FROM food_order "
-           "WHERE table_id = %s AND status = 'open' AND order_id <> %s")
     
-    result = run_query(sql, (table_id, target_order_id))
+    # ถ้ามี order_time ส่งมา ให้เช็คเฉพาะกรณีที่สถานะ 'open' และเวลาตรงกันเป๊ะๆ
+    if order_time:
+        sql = ("SELECT COUNT(*) AS n FROM food_order "
+               "WHERE table_id = %s AND status = 'open' AND order_id <> %s AND order_time = %s")
+        result = run_query(sql, (table_id, target_order_id, order_time))
+    else:
+        sql = ("SELECT COUNT(*) AS n FROM food_order "
+               "WHERE table_id = %s AND status = 'open' AND order_id <> %s")
+        result = run_query(sql, (table_id, target_order_id))
     
     if result and result[0]["n"] > 0:
-        raise ValueError(f"โต๊ะ {table_id} ยังมีออเดอร์ที่ยังไม่ชำระเงิน")
+        raise ValueError(f"โต๊ะ {table_id} มีออเดอร์ที่ยังไม่ชำระเงินในช่วงเวลานี้แล้ว")
     return True
     """ตรวจก่อนเปิดออเดอร์ (status = 'open') — ถ้าไม่ผ่านให้ raise ValueError("ข้อความ")
     (หน้าเว็บจะแสดงข้อความนั้นเป็น alert ให้ผู้ใช้เห็น และไม่บันทึกข้อมูล)
@@ -237,7 +242,9 @@ def check_table_free(table_id, order_id=None):
 
 def create_order(data):
     if data.get("status") == "open":
-        check_table_free(data["table_id"])
+        # Pass order_time เข้าไปเช็คด้วย
+        check_table_free(data["table_id"], order_time=blank_to_none(data.get("order_time")))
+        
     sql = ("INSERT INTO food_order (cust_id, table_id, order_time, status) "
            "VALUES (%s, %s, %s, %s)")
     params = (
@@ -258,9 +265,10 @@ def create_order(data):
 
 
 def update_order(order_id, data):
-   # 1. เช็กโต๊ะว่างถ้าสถานะออเดอร์ใหม่เป็น 'open' (ส่ง order_id ไปด้วยเพื่อข้ามออเดอร์ตัวเอง)
     if data.get("status") == "open":
-        check_table_free(data["table_id"], order_id)
+        # Pass order_time เข้าไปเช็คด้วย
+        check_table_free(data["table_id"], order_id=order_id, order_time=blank_to_none(data.get("order_time")))
+        
     sql = ("UPDATE food_order SET cust_id=%s, table_id=%s, order_time=%s, status=%s "
            "WHERE order_id=%s")
     params = (
