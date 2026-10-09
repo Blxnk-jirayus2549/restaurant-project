@@ -54,28 +54,19 @@ def search_customers(filters):
     return run_query(sql, params)
     
     
-    """ค้นหา ลูกค้า ตามเงื่อนไข (name, phone, member_tier)
-    คำใบ้: เริ่มจาก sql = "SELECT * FROM customer WHERE 1=1"
-    แล้วต่อเงื่อนไขเฉพาะ filter ที่มีค่า (ข้อความใช้ LIKE %s, อื่น ๆ ใช้ = %s)"""
-    # TODO: เขียน SQL ค้นหาแบบยืดหยุ่นตาม filters (ใช้ %s เสมอ)
-    _todo("search_customers")
 
 
 def get_customer(cust_id):
     sql = "SELECT * FROM customer WHERE cust_id = %s"
     rows = run_query(sql, (cust_id,))
     return rows[0] if rows else None
-    """ดึง ลูกค้า 1 รายการตาม cust_id (ใช้ตอนเปิดฟอร์มแก้ไข)"""
-    # TODO: SELECT * FROM customer WHERE cust_id = %s แล้วคืนแถวเดียว
-    _todo("get_customer")
+
 
 
 def create_customer(data):
     return run_command("INSERT INTO customer (name, phone, member_tier) VALUES (%s, %s, %s)",
                            (data["name"], data["phone"], data["member_tier"]))
-    """เพิ่ม ลูกค้า ใหม่ — data มีคีย์: name, phone, member_tier"""
-    # TODO: INSERT INTO customer (...) VALUES (%s, ...)
-    _todo("create_customer")
+
 
 
 def update_customer(cust_id, data):
@@ -83,16 +74,12 @@ def update_customer(cust_id, data):
                             "UPDATE customer SET name=%s,"
                             "phone=%s, member_tier=%s WHERE cust_id=%s",
                             (data["name"], data["phone"], data["member_tier"], cust_id))
-    """แก้ไข ลูกค้า ตาม cust_id"""
-    # TODO: UPDATE customer SET ... WHERE cust_id=%s
-    _todo("update_customer")
+
 
 
 def delete_customer(cust_id):
     return run_command("DELETE FROM customer WHERE cust_id=%s",(cust_id,))
-    """ลบ ลูกค้า ตาม cust_id"""
-    # TODO: DELETE FROM customer WHERE cust_id=%s
-    _todo("delete_customer")
+
 
 # ---------- เมนูอาหาร (menu_item) ----------
 def search_items(filters):
@@ -109,20 +96,14 @@ def search_items(filters):
             params.append(filters["category"])
     sql += " ORDER BY m.item_id"
     return run_query(sql, params)
-    """ค้นหา เมนูอาหาร ตามเงื่อนไข (name, category)
-    คำใบ้: เริ่มจาก sql = "SELECT * FROM menu_item WHERE 1=1"
-    แล้วต่อเงื่อนไขเฉพาะ filter ที่มีค่า (ข้อความใช้ LIKE %s, อื่น ๆ ใช้ = %s)"""
-    # TODO: เขียน SQL ค้นหาแบบยืดหยุ่นตาม filters (ใช้ %s เสมอ)
-    _todo("search_items")
+
 
 
 def get_item(item_id):
     sql = "SELECT * FROM menu_item WHERE item_id = %s"
     rows = run_query(sql, (item_id,))
     return rows[0] if rows else None
-    """ดึง เมนูอาหาร 1 รายการตาม item_id (ใช้ตอนเปิดฟอร์มแก้ไข)"""
-    # TODO: SELECT * FROM menu_item WHERE item_id = %s แล้วคืนแถวเดียว
-    _todo("get_item")
+
 
 
 def create_item(data):
@@ -130,9 +111,7 @@ def create_item(data):
     is_avail = int(data.get("is_available", 1))
     params = (data["name"], data["category"], data["price"], is_avail)
     return run_command(sql, params)
-    """เพิ่ม เมนูอาหาร ใหม่ — data มีคีย์: name, category, price, is_available"""
-    # TODO: INSERT INTO menu_item (...) VALUES (%s, ...)
-    _todo("create_item")
+
 
 
 def update_item(item_id, data):
@@ -141,19 +120,10 @@ def update_item(item_id, data):
     is_avail = int(data.get("is_available", 1))
     params = (data["name"], data["category"], data["price"], is_avail, item_id)
     return run_command(sql, params)
-    """แก้ไข เมนูอาหาร ตาม item_id"""
-    # TODO: UPDATE menu_item SET ... WHERE item_id=%s
-    _todo("update_item")
 
 
 def delete_item(item_id):
     return run_command("DELETE FROM menu_item WHERE item_id=%s", (item_id,))
-    """ลบ เมนูอาหาร ตาม item_id"""
-    # TODO: DELETE FROM menu_item WHERE item_id=%s
-    _todo("delete_item")
-
-# ---------- ออเดอร์ (food_order) ----------
-
 
 
 
@@ -264,6 +234,7 @@ def update_order(order_id, data):
         run_command(sql_item, (order_id, data["item_id"], data["qty"]))
 
     return res
+
 
 
 def delete_order(order_id):
