@@ -128,6 +128,7 @@ def delete_item(item_id):
 
 
 # ---------- ออเดอร์ (food_order) ----------
+# ---------- ออเดอร์ (food_order) ----------
 
 def search_orders(filters):
     sql = ("SELECT "
@@ -203,11 +204,17 @@ def create_order(data):
     res = run_command(sql, params)
     order_id = res["new_id"]
 
-    # 🟢 บันทึกรายการอาหารลง order_item ถ้ามีการเลือกเมนูและจำนวนมาจากหน้าเว็บ
+    # 🟢 บันทึกรายการอาหารที่ 1
     if data.get("item_id") and data.get("qty"):
         sql_item = ("INSERT INTO order_item (order_id, item_id, qty) VALUES (%s, %s, %s) "
                     "ON DUPLICATE KEY UPDATE qty = VALUES(qty)")
         run_command(sql_item, (order_id, data["item_id"], data["qty"]))
+
+    # 🟢 บันทึกรายการอาหารที่ 2 (ถ้าเลือกมา)
+    if data.get("item_id2") and data.get("qty2"):
+        sql_item = ("INSERT INTO order_item (order_id, item_id, qty) VALUES (%s, %s, %s) "
+                    "ON DUPLICATE KEY UPDATE qty = VALUES(qty)")
+        run_command(sql_item, (order_id, data["item_id2"], data["qty2"]))
 
     return res
 
@@ -227,14 +234,20 @@ def update_order(order_id, data):
     )
     res = run_command(sql, params)
 
-    # 🟢 บันทึก/อัปเดตรายการอาหารลง order_item ถ้ามีการเลือกเมนูและจำนวนมาจากหน้าเว็บ
+    # 🟢 1. ล้างรายการอาหารเก่าทั้งหมดของออเดอร์นี้ออกก่อน เพื่อไม่ให้รายการเก่าค้าง
+    run_command("DELETE FROM order_item WHERE order_id = %s", (order_id,))
+
+    # 🟢 2. บันทึกเฉพาะรายการใหม่ที่เลือกเข้ามาล่าสุด
     if data.get("item_id") and data.get("qty"):
-        sql_item = ("INSERT INTO order_item (order_id, item_id, qty) VALUES (%s, %s, %s) "
-                    "ON DUPLICATE KEY UPDATE qty = VALUES(qty)")
+        sql_item = "INSERT INTO order_item (order_id, item_id, qty) VALUES (%s, %s, %s)"
         run_command(sql_item, (order_id, data["item_id"], data["qty"]))
 
-    return res
+    # 🟢 3. บันทึกรายการที่ 2 (ถ้ามีการเลือกมา)
+    if data.get("item_id2") and data.get("qty2"):
+        sql_item = "INSERT INTO order_item (order_id, item_id, qty) VALUES (%s, %s, %s)"
+        run_command(sql_item, (order_id, data["item_id2"], data["qty2"]))
 
+    return res
 
 
 def delete_order(order_id):

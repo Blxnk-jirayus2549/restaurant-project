@@ -110,7 +110,7 @@ const ENTITIES = {
       }
     ]
   },
-  "orders": {
+"orders": {
     "label": "ออเดอร์",
     "api": "/api/orders",
     "idKey": "order_id",
@@ -168,7 +168,7 @@ const ENTITIES = {
       },
       {
         "key": "item_id",
-        "label": "เลือกเมนูอาหาร",
+        "label": "เลือกเมนูอาหาร 1",
         "type": "select",
         "optionsFrom": {
           "api": "/api/menu-items",
@@ -178,8 +178,28 @@ const ENTITIES = {
       },
       {
         "key": "qty",
-        "label": "จำนวนที่สั่ง",
+        "label": "จำนวนที่สั่ง (เมนูที่ 1)",
         "type": "number"
+      },
+      {
+        "key": "item_id2",
+        "label": "เลือกเมนูอาหาร 2 (ถ้ามี)",
+        "type": "select",
+        "optionsFrom": {
+          "api": "/api/menu-items",
+          "value": "item_id",
+          "label": "name"
+        }
+      },
+      {
+        "key": "qty2",
+        "label": "จำนวนที่สั่ง (เมนูที่ 2)",
+        "type": "number"
+      },
+      {
+        "key": "note",
+        "label": "หมายเหตุ",
+        "type": "textarea"
       }
     ]
   }
