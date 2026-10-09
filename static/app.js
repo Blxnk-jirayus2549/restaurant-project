@@ -165,6 +165,21 @@ const ENTITIES = {
           "open",
           "paid"
         ]
+      },
+      {
+        "key": "item_id",
+        "label": "เลือกเมนูอาหาร",
+        "type": "select",
+        "optionsFrom": {
+          "api": "/api/menu-items",
+          "value": "item_id",
+          "label": "name"
+        }
+      },
+      {
+        "key": "qty",
+        "label": "จำนวนที่สั่ง",
+        "type": "number"
       }
     ]
   }

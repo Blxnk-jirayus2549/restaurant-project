@@ -157,6 +157,8 @@ def delete_item(item_id):
 
 
 
+# ---------- ออเดอร์ (food_order) ----------
+
 def search_orders(filters):
     sql = ("SELECT "
            "    o.order_id, "
@@ -188,25 +190,11 @@ def search_orders(filters):
     sql += " ORDER BY o.order_id"
     return run_query(sql, params)
 
-    """ค้นหา ออเดอร์ ตามเงื่อนไข (cust_id, table_id, status)
-    ต้องแสดงคอลัมน์: order_id, cust_id, ชื่อลูกค้า, table_id, order_time, status, total (ยอดรวม)
-    คำใบ้:
-      - JOIN customer เพื่อแสดงชื่อลูกค้า
-      - total (ยอดรวมของออเดอร์) ไม่ได้เก็บเป็นคอลัมน์ → ต้องคำนวณ = SUM(qty × price)
-        LEFT JOIN กับ subquery ที่รวมยอดของแต่ละ order_id (order_item JOIN menu_item ... GROUP BY order_id)
-        แล้วใช้ IFNULL(..., 0) เพราะออเดอร์ที่ยังไม่มีรายการอาหารจะได้ NULL
-      - เงื่อนไขทุกตัวใช้ = %s"""
-    # TODO: เขียน SQL ค้นหาแบบยืดหยุ่นตาม filters (ใช้ %s เสมอ)
-    _todo("search_orders")
-
 
 def get_order(order_id):
     sql = "SELECT * FROM food_order WHERE order_id = %s"
     rows = run_query(sql, (order_id,))
     return rows[0] if rows else None
-    """ดึง ออเดอร์ 1 รายการตาม order_id (ใช้ตอนเปิดฟอร์มแก้ไข)"""
-    # TODO: SELECT * FROM food_order WHERE order_id = %s แล้วคืนแถวเดียว
-    _todo("get_order")
 
 
 def check_table_free(table_id, order_id=None, order_time=None):
@@ -216,7 +204,6 @@ def check_table_free(table_id, order_id=None, order_time=None):
 
     target_order_id = order_id or 0
     
-    # ถ้ามี order_time ส่งมา ให้เช็คเฉพาะกรณีที่สถานะ 'open' และเวลาตรงกันเป๊ะๆ
     if order_time:
         sql = ("SELECT COUNT(*) AS n FROM food_order "
                "WHERE table_id = %s AND status = 'open' AND order_id <> %s AND order_time = %s")
@@ -229,20 +216,10 @@ def check_table_free(table_id, order_id=None, order_time=None):
     if result and result[0]["n"] > 0:
         raise ValueError(f"โต๊ะ {table_id} มีออเดอร์ที่ยังไม่ชำระเงินในช่วงเวลานี้แล้ว")
     return True
-    """ตรวจก่อนเปิดออเดอร์ (status = 'open') — ถ้าไม่ผ่านให้ raise ValueError("ข้อความ")
-    (หน้าเว็บจะแสดงข้อความนั้นเป็น alert ให้ผู้ใช้เห็น และไม่บันทึกข้อมูล)
-    1) โต๊ะต้องมีอยู่จริง → SELECT ... FROM dining_table WHERE table_id = %s
-    2) โต๊ะต้องว่าง = ไม่มีออเดอร์อื่นที่ยัง 'open' อยู่ที่โต๊ะนี้
-       → SELECT COUNT(*) AS n FROM food_order WHERE table_id = %s AND status = 'open' AND order_id <> %s
-       ★ ตอนเพิ่มใหม่ order_id เป็น None → ส่ง 0 แทน (order_id or 0) จะได้ไม่ตรงกับออเดอร์ไหนเลย
-    ตัวอย่าง: raise ValueError(f"โต๊ะ {table_id} ยังมีออเดอร์ที่ยังไม่ชำระเงิน")"""
-    # TODO: เขียนการตรวจ 2 ข้อตามคำใบ้
-    _todo("check_table_free")
 
 
 def create_order(data):
     if data.get("status") == "open":
-        # Pass order_time เข้าไปเช็คด้วย
         check_table_free(data["table_id"], order_time=blank_to_none(data.get("order_time")))
         
     sql = ("INSERT INTO food_order (cust_id, table_id, order_time, status) "
@@ -253,20 +230,20 @@ def create_order(data):
         blank_to_none(data.get("order_time")),
         data["status"]
     )
-    return run_command(sql, params)
+    res = run_command(sql, params)
+    order_id = res["new_id"]
 
-    """เพิ่ม ออเดอร์ ใหม่ — data มีคีย์: cust_id, table_id, order_time, status
-    คำใบ้:
-      1) ถ้า status = 'open' → เรียก check_table_free(data["table_id"]) ก่อน (โต๊ะต้องว่าง)
-      2) INSERT INTO food_order (...) VALUES (%s, ...)
-         (order_time ว่างได้ → blank_to_none(data["order_time"]))"""
-    # TODO: เขียนตามคำใบ้
-    _todo("create_order")
+    # 🟢 บันทึกรายการอาหารลง order_item ถ้ามีการเลือกเมนูและจำนวนมาจากหน้าเว็บ
+    if data.get("item_id") and data.get("qty"):
+        sql_item = ("INSERT INTO order_item (order_id, item_id, qty) VALUES (%s, %s, %s) "
+                    "ON DUPLICATE KEY UPDATE qty = VALUES(qty)")
+        run_command(sql_item, (order_id, data["item_id"], data["qty"]))
+
+    return res
 
 
 def update_order(order_id, data):
     if data.get("status") == "open":
-        # Pass order_time เข้าไปเช็คด้วย
         check_table_free(data["table_id"], order_id=order_id, order_time=blank_to_none(data.get("order_time")))
         
     sql = ("UPDATE food_order SET cust_id=%s, table_id=%s, order_time=%s, status=%s "
@@ -278,21 +255,19 @@ def update_order(order_id, data):
         data["status"],
         order_id
     )
-    return run_command(sql, params)
-    """แก้ไข ออเดอร์ ตาม order_id
-    คำใบ้:
-      1) ถ้า status ใหม่ = 'open' → check_table_free(data["table_id"], order_id)
-         (ส่ง order_id ไปด้วย เพื่อไม่นับออเดอร์ตัวเอง)
-      2) UPDATE food_order SET ... WHERE order_id=%s"""
-    # TODO: เขียนตามคำใบ้
-    _todo("update_order")
+    res = run_command(sql, params)
+
+    # 🟢 บันทึก/อัปเดตรายการอาหารลง order_item ถ้ามีการเลือกเมนูและจำนวนมาจากหน้าเว็บ
+    if data.get("item_id") and data.get("qty"):
+        sql_item = ("INSERT INTO order_item (order_id, item_id, qty) VALUES (%s, %s, %s) "
+                    "ON DUPLICATE KEY UPDATE qty = VALUES(qty)")
+        run_command(sql_item, (order_id, data["item_id"], data["qty"]))
+
+    return res
 
 
 def delete_order(order_id):
     return run_command("DELETE FROM food_order WHERE order_id=%s", (order_id,))
-    """ลบ ออเดอร์ ตาม order_id"""
-    # TODO: DELETE FROM food_order WHERE order_id=%s
-    _todo("delete_order")
 
 
 # ============================================================
