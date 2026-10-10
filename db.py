@@ -274,6 +274,7 @@ def search_combos(filters):
 
 
 # 🟢 แก้ไข: ดึงข้อมูลยกเซ็ต (เมนูย่อยที่ 1 และ 2) มาใส่ Modal พร้อมกัน
+# 🟢 1. แก้ไข get_combo_by_id: ดึงเมนูย่อยที่ 3 ไปแสดงใน Modal
 def get_combo_by_id(combo_id):
     find_sql = "SELECT item_id FROM combo WHERE combo_id = %s"
     res = run_query(find_sql, (combo_id,))
@@ -300,10 +301,14 @@ def get_combo_by_id(combo_id):
         "sub_item_id": items[0]["sub_item_id"] if len(items) > 0 else "",
         "amount": items[0]["amount"] if len(items) > 0 else 1,
         "sub_item_id2": items[1]["sub_item_id"] if len(items) > 1 else "",
-        "amount2": items[1]["amount"] if len(items) > 1 else 1
+        "amount2": items[1]["amount"] if len(items) > 1 else 1,
+        # 🟢 เพิ่มรายการที่ 3
+        "sub_item_id3": items[2]["sub_item_id"] if len(items) > 2 else "",
+        "amount3": items[2]["amount"] if len(items) > 2 else 1
     }
 
 
+# 🟢 2. แก้ไข create_combo: บันทึกรายการย่อยที่ 3 ลงฐานข้อมูล
 def create_combo(data):
     combo_name = data.get("combo_name") or data.get("name")
     
@@ -327,6 +332,13 @@ def create_combo(data):
         amt2 = int(data.get("amount2") or 1)
         run_command("INSERT INTO combo (item_id, sub_item_id, amount) VALUES (%s, %s, %s)", (item_id, sub2, amt2))
 
+    # 🟢 เพิ่มการบันทึกรายการย่อยที่ 3
+    if data.get("sub_item_id3"):
+        sub3 = data["sub_item_id3"]
+        amt3 = int(data.get("amount3") or 1)
+        run_command("INSERT INTO combo (item_id, sub_item_id, amount) VALUES (%s, %s, %s)", (item_id, sub3, amt3))
+
+    # คำนวณราคารวม (SQL SUM จะคำนวณรวมทั้ง 3 รายการให้อัตโนมัติ)
     calc_sql = """
         SELECT SUM(m.price * c.amount) AS original_total
         FROM combo c
@@ -345,7 +357,7 @@ def create_combo(data):
     return {"status": "success", "combo_price": combo_price}
 
 
-# 🟢 แก้ไข: อัปเดตข้อมูลยกเซ็ตและลบองค์ประกอบเก่าแล้วใส่ชุดใหม่แทน
+# 🟢 3. แก้ไข update_combo: อัปเดตรายการย่อยที่ 3
 def update_combo(combo_id, data):
     combo_name = data.get("combo_name") or data.get("name")
     
@@ -371,6 +383,12 @@ def update_combo(combo_id, data):
         amt2 = int(data.get("amount2") or 1)
         run_command("INSERT INTO combo (item_id, sub_item_id, amount) VALUES (%s, %s, %s)", (item_id, sub2, amt2))
 
+    # 🟢 เพิ่มการบันทึกรายการย่อยที่ 3 ตอนแก้ไข
+    if data.get("sub_item_id3"):
+        sub3 = data["sub_item_id3"]
+        amt3 = int(data.get("amount3") or 1)
+        run_command("INSERT INTO combo (item_id, sub_item_id, amount) VALUES (%s, %s, %s)", (item_id, sub3, amt3))
+
     calc_sql = """
         SELECT SUM(m.price * c.amount) AS original_total
         FROM combo c
@@ -387,7 +405,6 @@ def update_combo(combo_id, data):
 
     return {"status": "success", "combo_price": combo_price}
 
-
 def delete_combo(combo_id):
     find_sql = "SELECT item_id FROM combo WHERE combo_id = %s"
     res = run_query(find_sql, (combo_id,))
@@ -397,6 +414,8 @@ def delete_combo(combo_id):
         run_command("DELETE FROM menu_item WHERE item_id = %s", (item_id,))
         return {"status": "success"}
     return {"status": "error"}
+
+
 # ============================================================
 #  REPORT (รายงาน — ใช้ JOIN + GROUP BY + subquery)
 #  ★ ชื่อคอลัมน์ใน SELECT จะกลายเป็นหัวตารางบนเว็บ — ใช้ AS 'ชื่อภาษาไทย' ได้

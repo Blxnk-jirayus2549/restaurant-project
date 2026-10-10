@@ -65,3 +65,48 @@ tr:nth-child(even) td{background:var(--tint)}
 .form-section{margin:18px 0 10px;padding-top:12px;border-top:1px dashed var(--line);
   font-size:14px;font-weight:700;color:var(--navy)}
 #formFields .field{margin-bottom:10px}
+
+
+/* combo table */
+/* Custom Styling สำหรับตารางชุดคอมโบ */
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th, td {
+  padding: 10px 12px;
+  vertical-align: middle;
+}
+
+/* จัดตำแหน่งข้อความ */
+.v-middle {
+  vertical-align: middle !important;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+}
+
+/* เส้นแบ่งกลุ่มและสีพื้นหลังของแต่ละเซ็ต */
+.combo-group-start {
+  border-top: 2px solid #3b82f6 !important; /* เส้นแบ่งหัวเซ็ตสีฟ้าสดใส */
+}
+
+.combo-main-cell {
+  background-color: #f8fafc; /* ไฮไลต์สีพื้นหลังอ่อนๆ ให้ช่องชื่อเซ็ตกับปุ่มจัดการ */
+  border-right: 1px solid #e2e8f0;
+  border-left: 1px solid #e2e8f0;
+}
+
+/* สไตล์ปุ่มในตาราง */
+.btn.sm {
+  padding: 4px 10px;
+  margin: 2px;
+  font-size: 13px;
+  border-radius: 6px;
+}

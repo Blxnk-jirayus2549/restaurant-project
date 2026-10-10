@@ -251,8 +251,19 @@ const ENTITIES = {
         "key": "amount2",
         "label": "จำนวน (เมนูที่ 2)",
         "type": "number"
-      }
-    ]
+      },
+      {
+        "key": "sub_item_id3",
+        "label": "เลือกเมนูย่อยที่ 3 (ถ้ามี)",
+        "type": "select",
+        "optionsFrom": { "api": "/api/menu-items", "value": "item_id", "label": "name" }
+      },
+      {
+        "key": "amount3",
+        "label": "จำนวน (เมนูที่ 3)",
+        "type": "number"
+      }  
+   ]
   }
 };
 
@@ -393,101 +404,74 @@ async function saveForm() {
   }
 }
 
-function renderTableBody(data) {
-  const tbody = document.getElementById("tableBody");
-  tbody.innerHTML = "";
-  const config = ENTITIES[currentEntity];
+function renderTable(r) {
+  const head = $("#tableHead"), body = $("#tableBody"), st = $("#status");
+  head.innerHTML = ""; body.innerHTML = "";
+  if (!r.ok) { setStatus(st, (r.todo ? "⚠️ " : "⚠️ ") + r.error, r.todo ? "todo" : "err"); return; }
+  const rows = r.data || [];
+  if (rows.length === 0) { setStatus(st, "ไม่พบข้อมูล"); return; }
+  setStatus(st, "พบ " + rows.length + " รายการ");
 
-  if (currentEntity === "combos") {
-    // 1. คำนวณจำนวนแถวย่อยของแต่ละ item_id
+  // 🟢 1. กรณีเป็นหน้า "ชุดคอมโบ" (ซ่อน combo_id ตามแบบที่ 1)
+  if (current === "combos") {
+    // กำหนดหัวตารางเฉพาะหน้าชุดคอมโบ
+    head.innerHTML = "<th>item_id</th><th>combo_name</th><th>sub_item_id</th><th>sub_item_name</th><th>sub_price</th><th>amount</th><th>sub_total</th><th class='text-center'>จัดการ</th>";
+
     const itemCounts = {};
-    data.forEach(row => {
+    rows.forEach(row => {
       itemCounts[row.item_id] = (itemCounts[row.item_id] || 0) + 1;
     });
 
     const renderedItems = new Set();
+    let html = "";
 
-    data.forEach(row => {
-      const tr = document.createElement("tr");
+    rows.forEach((row) => {
+      const id = row[ENTITIES[current].idKey];
       const isFirstRow = !renderedItems.has(row.item_id);
+      const span = itemCounts[row.item_id];
 
-      // 1. combo_id (แสดงทุกแถว)
-      const tdComboId = document.createElement("td");
-      tdComboId.innerText = row.combo_id;
-      tr.appendChild(tdComboId);
+      // เส้นขอบแบ่งกลุ่มคอมโบแต่ละเซ็ต
+      const borderStyle = isFirstRow ? "border-top: 2px solid #3b82f6;" : "border-top: 1px solid #e2e8f0;";
 
-      // 2. item_id & 3. combo_name (แสดงเฉพาะแถวแรกแบบ rowspan)
+      html += "<tr style='" + borderStyle + "'>";
+      
+      // ควบรวม item_id และ combo_name เป็นบล็อกหลักฝั่งซ้าย (ซ่อน combo_id ออก)
       if (isFirstRow) {
-        const tdItemId = document.createElement("td");
-        tdItemId.innerText = row.item_id;
-        tdItemId.rowSpan = itemCounts[row.item_id];
-        tr.appendChild(tdItemId);
-
-        const tdComboName = document.createElement("td");
-        tdComboName.innerText = row.combo_name;
-        tdComboName.rowSpan = itemCounts[row.item_id];
-        tr.appendChild(tdComboName);
+        html += "<td rowspan='" + span + "' style='vertical-align: middle; text-align: center; background-color: #f8fafc;'>" + (row.item_id ?? "-") + "</td>";
+        html += "<td rowspan='" + span + "' style='vertical-align: middle; background-color: #f8fafc;'><strong>" + (row.combo_name ?? "-") + "</strong></td>";
       }
 
-      // 4. sub_item_id, sub_item_name, sub_price, amount, sub_total (แสดงทุกแถว)
-      ["sub_item_id", "sub_item_name", "sub_price", "amount", "sub_total"].forEach(key => {
-        const td = document.createElement("td");
-        td.innerText = row[key] !== undefined && row[key] !== null ? row[key] : "";
-        tr.appendChild(td);
-      });
+      // รายการย่อยตรงกลาง
+      html += "<td style='vertical-align: middle; text-align: center;'>" + (row.sub_item_id ?? "-") + "</td>";
+      html += "<td style='vertical-align: middle;'>" + (row.sub_item_name ?? "-") + "</td>";
+      html += "<td style='vertical-align: middle; text-align: right;'>" + (row.sub_price ?? "-") + "</td>";
+      html += "<td style='vertical-align: middle; text-align: center;'>" + (row.amount ?? "-") + "</td>";
+      html += "<td style='vertical-align: middle; text-align: right;'>" + (row.sub_total ?? "-") + "</td>";
 
-      // 5. ปุ่มจัดการ [แก้ไข] [ลบ] (แสดงเฉพาะแถวแรกแบบ rowspan เท่านั้น!)
+      // ปุ่มจัดการควบรวมฝั่งขวา
       if (isFirstRow) {
-        const tdAction = document.createElement("td");
-        tdAction.rowSpan = itemCounts[row.item_id];
-
-        const btnEdit = document.createElement("button");
-        btnEdit.className = "btn sm";
-        btnEdit.innerText = "แก้ไข";
-        btnEdit.onclick = () => openModal(row[config.idKey]);
-
-        const btnDel = document.createElement("button");
-        btnDel.className = "btn sm danger";
-        btnDel.innerText = "ลบ";
-        btnDel.onclick = () => doDelete(row[config.idKey]);
-
-        tdAction.appendChild(btnEdit);
-        tdAction.appendChild(document.createTextNode(" "));
-        tdAction.appendChild(btnDel);
-        tr.appendChild(tdAction);
-
+        html += "<td rowspan='" + span + "' style='vertical-align: middle; text-align: center; background-color: #f8fafc;'>" +
+          '<button class="btn sm" onclick="editRow(' + id + ')">แก้ไข</button> ' +
+          '<button class="btn sm del" onclick="deleteRow(' + id + ')">ลบ</button>' +
+          "</td>";
         renderedItems.add(row.item_id);
       }
 
-      tbody.appendChild(tr);
+      html += "</tr>";
     });
+
+    body.innerHTML = html;
+
   } else {
-    // สำหรับหน้าอื่นๆ (ลูกค้า, เมนูอาหาร, ออเดอร์) แสดงตามปกติ
-    data.forEach(row => {
-      const tr = document.createElement("tr");
-      (config.columns || []).forEach(col => {
-        const td = document.createElement("td");
-        td.innerText = row[col.key] !== undefined && row[col.key] !== null ? row[col.key] : "";
-        tr.appendChild(td);
-      });
+    // 🔵 2. สำหรับหน้าอื่นๆ (ลูกค้า, เมนูอาหาร, ออเดอร์) ดึงหัวตารางและข้อมูลจากโหมดปกติ
+    const cols = Object.keys(rows[0]);
+    head.innerHTML = cols.map(c => "<th>" + c + "</th>").join("") + "<th>จัดการ</th>";
 
-      const tdAction = document.createElement("td");
-      const btnEdit = document.createElement("button");
-      btnEdit.className = "btn sm";
-      btnEdit.innerText = "แก้ไข";
-      btnEdit.onclick = () => openModal(row[config.idKey]);
-
-      const btnDel = document.createElement("button");
-      btnDel.className = "btn sm danger";
-      btnDel.innerText = "ลบ";
-      btnDel.onclick = () => doDelete(row[config.idKey]);
-
-      tdAction.appendChild(btnEdit);
-      tdAction.appendChild(document.createTextNode(" "));
-      tdAction.appendChild(btnDel);
-      tr.appendChild(tdAction);
-
-      tbody.appendChild(tr);
-    });
+    body.innerHTML = rows.map(row => {
+      const id = row[ENTITIES[current].idKey];
+      return "<tr>" + cols.map(c => "<td>" + (row[c] ?? "-") + "</td>").join("") +
+        '<td><button class="btn sm" onclick="editRow(' + id + ')">แก้ไข</button> ' +
+        '<button class="btn sm del" onclick="deleteRow(' + id + ')">ลบ</button></td></tr>';
+    }).join("");
   }
 }
