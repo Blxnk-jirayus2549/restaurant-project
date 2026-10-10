@@ -112,7 +112,28 @@ def order_update(_id):
 def order_delete(_id):
     return safe(db.delete_order, _id)
 
+# ----- ชุดคอมโบ -----
+# ----- ชุดคอมโบ -----
+@app.route('/api/combos', methods=['GET', 'POST'])
+def handle_combos():
+    if request.method == 'GET':
+        return safe(db.search_combos, request.args)
+    elif request.method == 'POST':
+        return safe(db.create_combo, request.json)
 
+# 🟢 เพิ่ม 'GET' เพื่อให้ดึงข้อมูลแถวที่จะแก้ไขได้
+@app.route('/api/combos/<int:combo_id>', methods=['GET', 'PUT', 'DELETE'])
+def handle_combo_detail(combo_id):
+    if request.method == 'GET':
+        return safe(db.get_combo_by_id, combo_id)
+    elif request.method == 'PUT':
+        return safe(db.update_combo, combo_id, request.json)
+    elif request.method == 'DELETE':
+        return safe(db.delete_combo, combo_id)
+
+@app.route('/api/combo-items', methods=['GET'])
+def handle_combo_items():
+    return safe(db.search_menu_items, {"category": "Combo"})
 # ---- รายงาน ----
 @app.route("/api/reports/summary")
 def report_summary():

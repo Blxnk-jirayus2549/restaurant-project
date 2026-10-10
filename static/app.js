@@ -202,8 +202,60 @@ const ENTITIES = {
         "type": "textarea"
       }
     ]
+  },
+
+"combos": {
+    "label": "ชุดคอมโบ",
+    "api": "/api/combos",
+    "idKey": "combo_id",
+    "columns": [
+      { "key": "combo_id", "label": "ID" },
+      { "key": "combo_name", "label": "เมนูชุดคอมโบ" },
+      { "key": "sub_item_name", "label": "เมนูย่อยข้างใน" },
+      { "key": "sub_price", "label": "ราคา/หน่วย" },
+      { "key": "amount", "label": "จำนวน" },
+      { "key": "sub_total", "label": "ราคารวม" }
+    ],
+    "search": [
+      {
+        "key": "item_id",
+        "label": "เมนูหลัก (Combo)",
+        "type": "select",
+        "optionsFrom": { "api": "/api/menu-items", "value": "item_id", "label": "name" }
+      }
+    ],
+    "form": [
+      {
+        "key": "combo_name",
+        "label": "ตั้งชื่อเมนูชุดคอมโบ (เช่น Super Burger Set)",
+        "type": "text"
+      },
+      {
+        "key": "sub_item_id",
+        "label": "เลือกเมนูย่อยที่ 1",
+        "type": "select",
+        "optionsFrom": { "api": "/api/menu-items", "value": "item_id", "label": "name" }
+      },
+      {
+        "key": "amount",
+        "label": "จำนวน (เมนูที่ 1)",
+        "type": "number"
+      },
+      {
+        "key": "sub_item_id2",
+        "label": "เลือกเมนูย่อยที่ 2 (ถ้ามี)",
+        "type": "select",
+        "optionsFrom": { "api": "/api/menu-items", "value": "item_id", "label": "name" }
+      },
+      {
+        "key": "amount2",
+        "label": "จำนวน (เมนูที่ 2)",
+        "type": "number"
+      }
+    ]
   }
 };
+
 
 let current = Object.keys(ENTITIES)[0];
 let editingId = null;
@@ -305,3 +357,137 @@ $("#btnSave").onclick = save;
 $("#btnCancel").onclick = () => $("#modal").classList.add("hidden");
 buildSearch();
 setStatus($("#status"), 'กด "ค้นหา" เพื่อแสดงข้อมูล');
+
+
+
+
+ // combo//
+async function saveForm() {
+  const config = ENTITIES[currentEntity];
+  const payload = {};
+
+  // ดึงค่าฟิลด์ทั้งหมดจาก Form ใน Modal
+  (config.form || []).forEach(f => {
+    const el = document.getElementById(`form_${f.key}`);
+    if (el) payload[f.key] = el.value;
+  });
+
+  const url = editId ? `${config.api}/${editId}` : config.api;
+  const method = editId ? "PUT" : "POST";
+
+  try {
+    const res = await fetch(url, {
+      method: method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const result = await res.json();
+    if (res.ok) {
+      closeModal();
+      doSearch(); // รีโหลดตารางข้อมูลทันทีหลังบันทึก
+    } else {
+      alert(result.error || "เกิดข้อผิดพลาดในการบันทึก");
+    }
+  } catch (err) {
+    alert("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
+  }
+}
+
+function renderTableBody(data) {
+  const tbody = document.getElementById("tableBody");
+  tbody.innerHTML = "";
+  const config = ENTITIES[currentEntity];
+
+  if (currentEntity === "combos") {
+    // 1. คำนวณจำนวนแถวย่อยของแต่ละ item_id
+    const itemCounts = {};
+    data.forEach(row => {
+      itemCounts[row.item_id] = (itemCounts[row.item_id] || 0) + 1;
+    });
+
+    const renderedItems = new Set();
+
+    data.forEach(row => {
+      const tr = document.createElement("tr");
+      const isFirstRow = !renderedItems.has(row.item_id);
+
+      // 1. combo_id (แสดงทุกแถว)
+      const tdComboId = document.createElement("td");
+      tdComboId.innerText = row.combo_id;
+      tr.appendChild(tdComboId);
+
+      // 2. item_id & 3. combo_name (แสดงเฉพาะแถวแรกแบบ rowspan)
+      if (isFirstRow) {
+        const tdItemId = document.createElement("td");
+        tdItemId.innerText = row.item_id;
+        tdItemId.rowSpan = itemCounts[row.item_id];
+        tr.appendChild(tdItemId);
+
+        const tdComboName = document.createElement("td");
+        tdComboName.innerText = row.combo_name;
+        tdComboName.rowSpan = itemCounts[row.item_id];
+        tr.appendChild(tdComboName);
+      }
+
+      // 4. sub_item_id, sub_item_name, sub_price, amount, sub_total (แสดงทุกแถว)
+      ["sub_item_id", "sub_item_name", "sub_price", "amount", "sub_total"].forEach(key => {
+        const td = document.createElement("td");
+        td.innerText = row[key] !== undefined && row[key] !== null ? row[key] : "";
+        tr.appendChild(td);
+      });
+
+      // 5. ปุ่มจัดการ [แก้ไข] [ลบ] (แสดงเฉพาะแถวแรกแบบ rowspan เท่านั้น!)
+      if (isFirstRow) {
+        const tdAction = document.createElement("td");
+        tdAction.rowSpan = itemCounts[row.item_id];
+
+        const btnEdit = document.createElement("button");
+        btnEdit.className = "btn sm";
+        btnEdit.innerText = "แก้ไข";
+        btnEdit.onclick = () => openModal(row[config.idKey]);
+
+        const btnDel = document.createElement("button");
+        btnDel.className = "btn sm danger";
+        btnDel.innerText = "ลบ";
+        btnDel.onclick = () => doDelete(row[config.idKey]);
+
+        tdAction.appendChild(btnEdit);
+        tdAction.appendChild(document.createTextNode(" "));
+        tdAction.appendChild(btnDel);
+        tr.appendChild(tdAction);
+
+        renderedItems.add(row.item_id);
+      }
+
+      tbody.appendChild(tr);
+    });
+  } else {
+    // สำหรับหน้าอื่นๆ (ลูกค้า, เมนูอาหาร, ออเดอร์) แสดงตามปกติ
+    data.forEach(row => {
+      const tr = document.createElement("tr");
+      (config.columns || []).forEach(col => {
+        const td = document.createElement("td");
+        td.innerText = row[col.key] !== undefined && row[col.key] !== null ? row[col.key] : "";
+        tr.appendChild(td);
+      });
+
+      const tdAction = document.createElement("td");
+      const btnEdit = document.createElement("button");
+      btnEdit.className = "btn sm";
+      btnEdit.innerText = "แก้ไข";
+      btnEdit.onclick = () => openModal(row[config.idKey]);
+
+      const btnDel = document.createElement("button");
+      btnDel.className = "btn sm danger";
+      btnDel.innerText = "ลบ";
+      btnDel.onclick = () => doDelete(row[config.idKey]);
+
+      tdAction.appendChild(btnEdit);
+      tdAction.appendChild(document.createTextNode(" "));
+      tdAction.appendChild(btnDel);
+      tr.appendChild(tdAction);
+
+      tbody.appendChild(tr);
+    });
+  }
+}

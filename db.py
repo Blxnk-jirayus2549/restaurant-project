@@ -254,6 +254,149 @@ def delete_order(order_id):
     return run_command("DELETE FROM food_order WHERE order_id=%s", (order_id,))
 
 
+# ---------- ชุดคอมโบ (combo) ----------
+
+def search_combos(filters):
+    sql = ("SELECT c.combo_id, c.item_id, m1.name AS combo_name, "
+           "c.sub_item_id, m2.name AS sub_item_name, "
+           "m2.price AS sub_price, c.amount, "
+           "(m2.price * c.amount) AS sub_total "
+           "FROM combo c "
+           "JOIN menu_item m1 ON c.item_id = m1.item_id "
+           "JOIN menu_item m2 ON c.sub_item_id = m2.item_id "
+           "WHERE 1=1")
+    params = []
+    if filters.get("item_id"):
+        sql += " AND c.item_id = %s"
+        params.append(filters["item_id"])
+    sql += " ORDER BY c.item_id ASC, c.combo_id ASC"
+    return run_query(sql, params)
+
+
+# 🟢 แก้ไข: ดึงข้อมูลยกเซ็ต (เมนูย่อยที่ 1 และ 2) มาใส่ Modal พร้อมกัน
+def get_combo_by_id(combo_id):
+    find_sql = "SELECT item_id FROM combo WHERE combo_id = %s"
+    res = run_query(find_sql, (combo_id,))
+    if not res:
+        return {}
+    
+    item_id = res[0]["item_id"]
+    
+    sql = ("SELECT c.combo_id, c.item_id, m1.name AS combo_name, "
+           "c.sub_item_id, c.amount "
+           "FROM combo c "
+           "JOIN menu_item m1 ON c.item_id = m1.item_id "
+           "WHERE c.item_id = %s "
+           "ORDER BY c.combo_id ASC")
+    items = run_query(sql, (item_id,))
+    
+    if not items:
+        return {}
+
+    return {
+        "combo_id": combo_id,
+        "item_id": item_id,
+        "combo_name": items[0]["combo_name"],
+        "sub_item_id": items[0]["sub_item_id"] if len(items) > 0 else "",
+        "amount": items[0]["amount"] if len(items) > 0 else 1,
+        "sub_item_id2": items[1]["sub_item_id"] if len(items) > 1 else "",
+        "amount2": items[1]["amount"] if len(items) > 1 else 1
+    }
+
+
+def create_combo(data):
+    combo_name = data.get("combo_name") or data.get("name")
+    
+    check_sql = "SELECT item_id FROM menu_item WHERE name = %s"
+    existing = run_query(check_sql, (combo_name,))
+    
+    if existing:
+        item_id = existing[0]["item_id"]
+    else:
+        insert_menu = "INSERT INTO menu_item (name, category, price, is_available) VALUES (%s, 'Combo', 0.00, TRUE)"
+        res_menu = run_command(insert_menu, (combo_name,))
+        item_id = res_menu["new_id"]
+
+    if data.get("sub_item_id"):
+        sub1 = data["sub_item_id"]
+        amt1 = int(data.get("amount") or 1)
+        run_command("INSERT INTO combo (item_id, sub_item_id, amount) VALUES (%s, %s, %s)", (item_id, sub1, amt1))
+
+    if data.get("sub_item_id2"):
+        sub2 = data["sub_item_id2"]
+        amt2 = int(data.get("amount2") or 1)
+        run_command("INSERT INTO combo (item_id, sub_item_id, amount) VALUES (%s, %s, %s)", (item_id, sub2, amt2))
+
+    calc_sql = """
+        SELECT SUM(m.price * c.amount) AS original_total
+        FROM combo c
+        JOIN menu_item m ON c.sub_item_id = m.item_id
+        WHERE c.item_id = %s
+    """
+    total_res = run_query(calc_sql, (item_id,))
+    original_total = total_res[0]["original_total"] if total_res and total_res[0]["original_total"] else 0
+
+    discount_rate = 0.85
+    combo_price = round(float(original_total) * discount_rate, 2)
+
+    update_price_sql = "UPDATE menu_item SET price = %s WHERE item_id = %s"
+    run_command(update_price_sql, (combo_price, item_id))
+
+    return {"status": "success", "combo_price": combo_price}
+
+
+# 🟢 แก้ไข: อัปเดตข้อมูลยกเซ็ตและลบองค์ประกอบเก่าแล้วใส่ชุดใหม่แทน
+def update_combo(combo_id, data):
+    combo_name = data.get("combo_name") or data.get("name")
+    
+    find_sql = "SELECT item_id FROM combo WHERE combo_id = %s"
+    res = run_query(find_sql, (combo_id,))
+    if not res:
+        return {"error": "ไม่พบรายการที่ต้องการแก้ไข"}
+        
+    item_id = res[0]["item_id"]
+
+    if combo_name:
+        run_command("UPDATE menu_item SET name = %s WHERE item_id = %s", (combo_name, item_id))
+
+    run_command("DELETE FROM combo WHERE item_id = %s", (item_id,))
+
+    if data.get("sub_item_id"):
+        sub1 = data["sub_item_id"]
+        amt1 = int(data.get("amount") or 1)
+        run_command("INSERT INTO combo (item_id, sub_item_id, amount) VALUES (%s, %s, %s)", (item_id, sub1, amt1))
+
+    if data.get("sub_item_id2"):
+        sub2 = data["sub_item_id2"]
+        amt2 = int(data.get("amount2") or 1)
+        run_command("INSERT INTO combo (item_id, sub_item_id, amount) VALUES (%s, %s, %s)", (item_id, sub2, amt2))
+
+    calc_sql = """
+        SELECT SUM(m.price * c.amount) AS original_total
+        FROM combo c
+        JOIN menu_item m ON c.sub_item_id = m.item_id
+        WHERE c.item_id = %s
+    """
+    total_res = run_query(calc_sql, (item_id,))
+    original_total = total_res[0]["original_total"] if total_res and total_res[0]["original_total"] else 0
+
+    discount_rate = 0.85
+    combo_price = round(float(original_total) * discount_rate, 2)
+
+    run_command("UPDATE menu_item SET price = %s WHERE item_id = %s", (combo_price, item_id))
+
+    return {"status": "success", "combo_price": combo_price}
+
+
+def delete_combo(combo_id):
+    find_sql = "SELECT item_id FROM combo WHERE combo_id = %s"
+    res = run_query(find_sql, (combo_id,))
+    if res:
+        item_id = res[0]["item_id"]
+        run_command("DELETE FROM combo WHERE item_id = %s", (item_id,))
+        run_command("DELETE FROM menu_item WHERE item_id = %s", (item_id,))
+        return {"status": "success"}
+    return {"status": "error"}
 # ============================================================
 #  REPORT (รายงาน — ใช้ JOIN + GROUP BY + subquery)
 #  ★ ชื่อคอลัมน์ใน SELECT จะกลายเป็นหัวตารางบนเว็บ — ใช้ AS 'ชื่อภาษาไทย' ได้
