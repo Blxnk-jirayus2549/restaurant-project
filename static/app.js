@@ -264,8 +264,64 @@ const ENTITIES = {
         "type": "number"
       }  
    ]
+  },
+
+  // review
+"ratings": {
+    "label": "คะแนนรีวิว",
+    "api": "/api/reviews",
+    "idKey": "review_id",
+    "columns": [
+      { "key": "review_id", "label": "ID" },
+      { "key": "cust_name", "label": "ชื่อลูกค้า" },
+      { "key": "order_id", "label": "รหัสออเดอร์" },
+      { "key": "item_name", "label": "เมนู" },
+      { "key": "rating", "label": "คะแนน" },
+      { "key": "comment", "label": "ความคิดเห็น" },
+      { "key": "created_at", "label": "วันที่รีวิว" }
+    ],
+    "search": [
+      {
+        "key": "name",
+        "label": "ชื่อลูกค้า",
+        "type": "text"
+      },
+      {
+        "key": "order_id",
+        "label": "รหัสออเดอร์",
+        "type": "number"
+      }
+    ],
+    "form": [
+      {
+        "key": "cust_id",
+        "label": "รหัสลูกค้า (ไม่ระบุได้)",
+        "type": "number"
+      },
+      {
+        "key": "order_id",
+        "label": "รหัสออเดอร์ (ไม่ระบุได้)",
+        "type": "number"
+      },
+      {
+        "key": "item_id",
+        "label": "รหัสเมนู (ไม่ระบุได้)",
+        "type": "number"
+      },
+      {
+        "key": "rating",
+        "label": "คะแนน (1-5)",
+        "type": "number"
+      },
+      {
+        "key": "comment",
+        "label": "ความคิดเห็น",
+        "type": "textarea"
+      }
+    ]
   }
 };
+
 
 
 let current = Object.keys(ENTITIES)[0];

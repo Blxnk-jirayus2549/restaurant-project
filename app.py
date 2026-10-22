@@ -135,7 +135,24 @@ def handle_combo_detail(combo_id):
 def handle_combo_items():
     return safe(db.search_menu_items, {"category": "Combo"})
 
+# review
 
+# ----- คะแนนรีวิว -----
+@app.route('/api/reviews', methods=['GET', 'POST'])
+def handle_reviews():
+    if request.method == 'GET':
+        return safe(db.search_reviews, request.args)
+    elif request.method == 'POST':
+        return safe(db.create_review, request.json)
+
+@app.route('/api/reviews/<int:review_id>', methods=['GET', 'PUT', 'DELETE'])
+def handle_review_detail(review_id):
+    if request.method == 'GET':
+        return safe(db.get_review, review_id)
+    elif request.method == 'PUT':
+        return safe(db.update_review, review_id, request.json)
+    elif request.method == 'DELETE':
+        return safe(db.delete_review, review_id)
 
 
 

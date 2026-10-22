@@ -4,13 +4,14 @@
 --          เมนูชุด combo = M:N (menu_item × menu_item)
 --  ต้องมี: PK ทุกตาราง, FK ครบ, ชื่อตรงกับ db.py, sample data
 -- ============================================================
-
-DROP TABLE IF EXISTS combo;
-DROP TABLE IF EXISTS order_item;
-DROP TABLE IF EXISTS food_order;
-DROP TABLE IF EXISTS dining_table;
-DROP TABLE IF EXISTS menu_item;
-DROP TABLE IF EXISTS customer;
+-- 
+-- DROP TABLE IF EXISTS combo;
+-- DROP TABLE IF EXISTS order_item;
+-- DROP TABLE IF EXISTS review ;
+-- DROP TABLE IF EXISTS food_order;
+-- DROP TABLE IF EXISTS dining_table;
+-- DROP TABLE IF EXISTS menu_item;
+-- DROP TABLE IF EXISTS customer;
 
 -- 1. ตารางลูกค้า (customer)
 CREATE TABLE customer (
@@ -69,6 +70,23 @@ CREATE TABLE combo (
     FOREIGN KEY (sub_item_id) REFERENCES menu_item(item_id) ON DELETE CASCADE
 );
 
+
+-- 7. ตารางรีวิว (review)
+CREATE TABLE review (
+    review_id   INT AUTO_INCREMENT PRIMARY KEY,
+    cust_id     INT,
+    order_id    INT,
+    item_id     INT,
+    rating      INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    comment     TEXT,
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cust_id) REFERENCES customer(cust_id) ON DELETE SET NULL,
+    FOREIGN KEY (order_id) REFERENCES food_order(order_id) ON DELETE CASCADE,
+    FOREIGN KEY (item_id)  REFERENCES menu_item(item_id) ON DELETE CASCADE
+);
+
+
+
 -- ============================================================
 -- INSERT ข้อมูลตัวอย่างทุกตาราง (Sample Data)
 -- ============================================================
@@ -93,7 +111,7 @@ INSERT INTO menu_item (name, category, price, is_available) VALUES
 INSERT INTO dining_table (seats, zone) VALUES
 (4, 'A'), -- table_id = 1
 (2, 'B'), -- table_id = 2
-(6, 'C'); -- table_id = 3
+(6, 'C'); -- table_id = 3ฆ
 
 -- 4. ข้อมูลออเดอร์
 -- ★ มีสถานะ 'open' ที่โต๊ะ 1 (table_id = 1) ไว้ทดสอบ "เปิดออเดอร์ซ้ำโต๊ะเดิมไม่ได้"
@@ -115,3 +133,11 @@ INSERT INTO combo (item_id, sub_item_id, amount) VALUES
 (1, 2, 1),
 (1, 3, 1),
 (1, 4, 1);
+
+-- 7.ข้อมูลรีวิว
+INSERT INTO review (cust_id, order_id, item_id, rating, comment, created_at) VALUES
+(1, 1, 2, 5, 'Burger อร่อยมากครับ เนื้อฉ่ำกำลังดี', '2026-10-09 13:00:00'),
+(2, 2, 6, 4, 'ผักสดกรอบ น้ำสลัดอร่อยดีค่ะ', '2026-10-09 13:30:00'),
+(2, 2, NULL, 5, 'บริการดี อาหารเสิร์ฟไวมาก', '2026-10-09 13:35:00');
+
+

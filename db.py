@@ -415,65 +415,185 @@ def delete_combo(combo_id):
         return {"status": "success"}
     return {"status": "error"}
 
+# // ---------- รีวิว (review) ----------
+
+def search_reviews(filters):
+    sql = """
+        SELECT r.review_id, 
+               r.cust_id, 
+               COALESCE(c.name, 'ไม่ระบุชื่อ') AS cust_name,
+               r.order_id, 
+               r.item_id, 
+               COALESCE(m.name, 'ไม่ระบุเมนู') AS item_name,
+               r.rating, 
+               r.comment, 
+               r.created_at
+        FROM review r
+        LEFT JOIN customer c ON r.cust_id = c.cust_id
+        LEFT JOIN menu_item m ON r.item_id = m.item_id
+        WHERE 1=1
+    """
+    params = []
+
+    if filters.get("name"):
+        sql += " AND c.name LIKE %s"
+        params.append(f"%{filters['name']}%")
+
+    if filters.get("phone"):
+        sql += " AND c.phone LIKE %s"
+        params.append(f"%{filters['phone']}%")
+
+    if filters.get("order_id"):
+        sql += " AND r.order_id = %s"
+        params.append(filters["order_id"])
+
+    if filters.get("cust_id"):
+        sql += " AND r.cust_id = %s"
+        params.append(filters["cust_id"])
+
+    if filters.get("item_id"):
+        sql += " AND r.item_id = %s"
+        params.append(filters["item_id"])
+
+    sql += " ORDER BY r.review_id ASC"
+    return run_query(sql, params)
+
+def get_review(review_id):
+    sql = "SELECT * FROM review WHERE review_id = %s"
+    rows = run_query(sql, (review_id,))
+    return rows[0] if rows else None
+
+
+def create_review(data):
+    sql = (
+        "INSERT INTO review (cust_id, order_id, item_id, rating, comment) "
+        "VALUES (%s, %s, %s, %s, %s)"
+    )
+    # 🟢 แปลงค่าว่าง "" หรือ 0 ให้กลายเป็น None (NULL ใน SQL)
+    def clean_val(val):
+        return int(val) if val and str(val).strip() != "" else None
+
+    cust_id = clean_val(data.get("cust_id"))
+    order_id = clean_val(data.get("order_id"))
+    item_id = clean_val(data.get("item_id"))
+    rating = int(data.get("rating")) if data.get("rating") else None
+    comment = data.get("comment") or None
+
+    params = (cust_id, order_id, item_id, rating, comment)
+    return run_command(sql, params)
+
+def update_review(review_id, data):
+    fields = []
+    params = []
+
+    def clean_val(val):
+        return int(val) if val and str(val).strip() != "" else None
+
+    for key in ["cust_id", "order_id", "item_id", "rating", "comment"]:
+        if key in data:
+            fields.append(f"{key} = %s")
+            if key in ["cust_id", "order_id", "item_id"]:
+                params.append(clean_val(data[key]))
+            elif key == "rating":
+                params.append(int(data[key]) if data[key] else None)
+            else:
+                params.append(data[key] or None)
+
+    if not fields:
+        return False
+
+    sql = f"UPDATE review SET {', '.join(fields)} WHERE review_id = %s"
+    params.append(review_id)
+
+    return run_command(sql, tuple(params))
+
+def delete_review(review_id):
+    return run_command("DELETE FROM review WHERE review_id = %s", (review_id,))
+
 
 # ============================================================
 #  REPORT (รายงาน — ใช้ JOIN + GROUP BY + subquery)
-#  ★ ชื่อคอลัมน์ใน SELECT จะกลายเป็นหัวตารางบนเว็บ — ใช้ AS 'ชื่อภาษาไทย' ได้
 # ============================================================
 def report_summary():
-    """ตัวเลขสรุปบนการ์ด dashboard — คืน dict {ชื่อการ์ด: ตัวเลข}  (1 คีย์ = 1 การ์ด)
-    ตอนนี้ยังไม่ได้เขียน SQL → คืนค่า None ทุกการ์ด หน้าเว็บจึงแสดง "—" รอไว้
-    ★ งานของนิสิต: เขียน SQL ตามตัวอย่างด้านล่าง (1 คอลัมน์ใน SELECT = 1 การ์ด
-      ชื่อหลัง AS = ข้อความใต้ตัวเลข) แล้วลบ return {...} ชุดล่างสุดทิ้ง
-    ★ การ์ด "คิดเพิ่มเอง" 2 ใบ: ตั้งชื่อการ์ดใหม่ แล้วเขียน SQL เอง
-    ★ ผลรวมเงินใช้ IFNULL(SUM(...), 0) — ถ้ายังไม่มีข้อมูล SUM จะได้ NULL"""
-    # ---- ตัวอย่างเมื่อเขียน SQL แล้ว (เอา # ข้างหน้าออก แล้วเติมให้ครบทุกการ์ด) ----
-    # sql = """SELECT
-    #            (SELECT COUNT(*) FROM ...) AS 'ลูกค้า',
-    #            (SELECT ...)               AS 'เมนู',
-    #            ...
-    #          """
-    # return run_query(sql)[0]      ← [0] = เอาแถวแรก (ผลมีแถวเดียว) ได้เป็น dict
+    """ตัวเลขสรุปบนการ์ด dashboard — คืน dict {ชื่อการ์ด: ตัวเลข}"""
+    sql = """
+        SELECT 
+            -- 🔹 [การ์ดหลักตามโจทย์กำหนด]
+            (SELECT COUNT(*) FROM customer) AS 'ลูกค้า',
+            (SELECT COUNT(*) FROM menu_item) AS 'เมนู',
+            (SELECT COUNT(*) FROM food_order) AS 'ออเดอร์',
+            (SELECT IFNULL(SUM(oi.qty * m.price), 0) 
+             FROM order_item oi 
+             JOIN menu_item m ON oi.item_id = m.item_id) AS 'ยอดขายรวม',
+            
+            -- 🟢 [คิดเพิ่มเอง 1]: คำนวณคะแนนรีวิวเฉลี่ยจากตาราง review
+            (SELECT IFNULL(ROUND(AVG(rating), 2), 0) FROM review) AS 'คะแนนรีวิวเฉลี่ย',
+            
+            -- 🟢 [คิดเพิ่มเอง 2]: นับจำนวนรีวิวทั้งหมดจากตาราง review
+            (SELECT COUNT(*) FROM review) AS 'จำนวนรีวิวทั้งหมด'
+    """
+    res = run_query(sql)
+    return res[0] if res else {}
 
-    # TODO: ระหว่างที่ยังไม่ได้เขียน SQL คืนค่า None ให้การ์ดแสดง "—" รอไว้
-    return {
-        "ลูกค้า":         None,   # (SELECT COUNT(*) FROM customer)
-        "เมนู":           None,   # นับเมนูทั้งหมด
-        "ออเดอร์":        None,   # นับออเดอร์ทั้งหมด
-        "ยอดขายรวม":      None,   # IFNULL(SUM(qty × price), 0) จาก order_item JOIN menu_item
-        "คิดเพิ่มเอง 1":  None,   # ตั้งชื่อการ์ดใหม่ + เขียน SQL เอง
-        "คิดเพิ่มเอง 2":  None,   # ตั้งชื่อการ์ดใหม่ + เขียน SQL เอง
-    }
 
 def report_popular_items():
-    """📈 เมนูขายดี (Best Sellers)
-    คำใบ้: JOIN order_item→menu_item, GROUP BY item, SUM(qty), ORDER BY DESC, LIMIT 5"""
-    # TODO: เขียน SQL รายงานนี้ (เขียน JOIN แบบ explicit INNER JOIN ... ON ...)
-    _todo("report_popular_items")
+    """📈 เมนูขายดี (Best Sellers)"""
+    sql = """
+        SELECT 
+            m.item_id AS 'รหัสเมนู',
+            m.name AS 'ชื่อเมนู',
+            m.category AS 'หมวดหมู่',
+            SUM(oi.qty) AS 'จำนวนที่ขายได้ (ชิ้น)',
+            SUM(oi.qty * m.price) AS 'ยอดขายรวม (บาท)'
+        FROM order_item oi
+        INNER JOIN menu_item m ON oi.item_id = m.item_id
+        GROUP BY m.item_id, m.name, m.category
+        ORDER BY SUM(oi.qty) DESC
+        LIMIT 5
+    """
+    return run_query(sql)
+
 
 def report_daily_sales():
-    """💰 ยอดขายรวมต่อวัน (Daily Sales)
-    คำใบ้: JOIN food_order→order_item→menu_item, GROUP BY วันที่, SUM(qty*price)"""
-    # TODO: เขียน SQL รายงานนี้ (เขียน JOIN แบบ explicit INNER JOIN ... ON ...)
-    _todo("report_daily_sales")
+    """💰 ยอดขายรวมต่อวัน (Daily Sales)"""
+    # 🟢 เปลี่ยน fo.order_date เป็น fo.order_time
+    sql = """
+        SELECT 
+            DATE(fo.order_time) AS 'วันที่',
+            COUNT(DISTINCT fo.order_id) AS 'จำนวนออเดอร์',
+            SUM(oi.qty) AS 'จำนวนรายการอาหารที่ขาย',
+            SUM(oi.qty * m.price) AS 'ยอดขายรวม (บาท)'
+        FROM food_order fo
+        INNER JOIN order_item oi ON fo.order_id = oi.order_id
+        INNER JOIN menu_item m ON oi.item_id = m.item_id
+        GROUP BY DATE(fo.order_time)
+        ORDER BY DATE(fo.order_time) DESC
+    """
+    return run_query(sql)
+
 
 def report_big_orders():
-    """🧾 ออเดอร์ยอดเกิน 500 บาท (HAVING)
-    คำใบ้: GROUP BY order, HAVING SUM(qty*price) > 500"""
-    # TODO: เขียน SQL รายงานนี้ (เขียน JOIN แบบ explicit INNER JOIN ... ON ...)
-    _todo("report_big_orders")
+    """🧾 ออเดอร์ยอดเกิน 500 บาท (HAVING)"""
+    # 🟢 เปลี่ยน fo.order_date เป็น fo.order_time
+    sql = """
+        SELECT 
+            fo.order_id AS 'รหัสออเดอร์',
+            COALESCE(c.name, 'ไม่ระบุชื่อ') AS 'ชื่อลูกค้า',
+            fo.order_time AS 'วัน-เวลาสั่งซื้อ',
+            SUM(oi.qty * m.price) AS 'ราคารวม (บาท)'
+        FROM food_order fo
+        INNER JOIN order_item oi ON fo.order_id = oi.order_id
+        INNER JOIN menu_item m ON oi.item_id = m.item_id
+        LEFT JOIN customer c ON fo.cust_id = c.cust_id
+        GROUP BY fo.order_id, c.name, fo.order_time
+        HAVING SUM(oi.qty * m.price) > 500
+        ORDER BY SUM(oi.qty * m.price) DESC
+    """
+    return run_query(sql)
 
-# ============================================================
-#  รายการรายงานที่แสดงบนหน้า /report  (เรียงตามลำดับที่แสดง)
-#  ★ วิธีเพิ่มรายงานใหม่ (ไม่ต้องแก้ไฟล์อื่น):
-#    1) เขียนฟังก์ชัน report_xxx() ด้านบน ให้ return run_query(sql)
-#    2) เพิ่ม 1 บรรทัดในรายการนี้:  ("ชื่อใน-url", "หัวข้อที่แสดง", ชื่อฟังก์ชัน)
-#  ★ รายการนี้ต้องอยู่ท้ายไฟล์ (หลังฟังก์ชันทั้งหมด) ไม่งั้น Python หาชื่อฟังก์ชันไม่เจอ
-#  ★ ห้ามตั้งชื่อ url ว่า "summary" (ใช้แล้วสำหรับการ์ดสรุป)
-# ============================================================
+
 REPORTS = [
     ("popular-items", "📈 เมนูขายดี (Best Sellers)",        report_popular_items),
     ("daily-sales",   "💰 ยอดขายรวมต่อวัน (Daily Sales)",   report_daily_sales),
     ("big-orders",    "🧾 ออเดอร์ยอดเกิน 500 บาท (HAVING)", report_big_orders),
-    # ("my-report", "📋 รายงานของฉัน", report_my_report),   ← ตัวอย่างการเพิ่มรายงานที่ 4
 ]
