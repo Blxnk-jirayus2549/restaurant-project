@@ -553,6 +553,103 @@ def delete_review(review_id):
     return run_command("DELETE FROM review WHERE review_id = %s", (review_id,))
 
 
+
+
+
+#============================================================
+
+# 1. ค้นหาบิลทั้งหมด (แสดงราคารวม SUM)
+def search_bills(filters=None):
+    sql = """
+        SELECT 
+            o.order_id,
+            c.name AS customer_name,
+            o.table_id,
+            o.order_time,
+            o.status,
+            COALESCE(SUM(oi.qty * m.price), 0.00) AS total
+        FROM food_order o
+        LEFT JOIN customer c ON o.cust_id = c.cust_id
+        LEFT JOIN order_item oi ON o.order_id = oi.order_id
+        LEFT JOIN menu_item m ON oi.item_id = m.item_id
+        WHERE 1=1
+    """
+    params = []
+    if filters:
+        if filters.get("cust_id"):
+            sql += " AND o.cust_id = %s"
+            params.append(filters["cust_id"])
+        if filters.get("table_id"):
+            sql += " AND o.table_id = %s"
+            params.append(filters["table_id"])
+            
+    sql += " GROUP BY o.order_id, c.name, o.table_id, o.order_time, o.status ORDER BY o.order_id DESC"
+    return run_query(sql, params)
+
+# 2. ดึงรายการอาหารย่อยในบิล
+def get_order_items_by_order_id(order_id):
+    sql = """
+        SELECT 
+            m.name AS item_name,
+            oi.qty,
+            m.price
+        FROM order_item oi
+        JOIN menu_item m ON oi.item_id = m.item_id
+        WHERE oi.order_id = %s
+    """
+    return run_query(sql, [order_id])
+
+# 3. อัปเดตข้อมูลออเดอร์ (รองรับทั้งอัปเดตเฉพาะ status และอัปเดตเต็มรูปแบบ)
+def update_order(order_id, data):
+    # กรณีอัปเดตเฉพาะสถานะ (ปุ่มชำระเงิน)
+    if "status" in data and len(data) == 1:
+        sql_status = "UPDATE food_order SET status = %s WHERE order_id = %s"
+        return run_command(sql_status, (data["status"], order_id))
+
+    table_id = data.get("table_id")
+    status = data.get("status", "open")
+    if status == "open" and table_id:
+        check_table_free(table_id, order_id=order_id, order_time=blank_to_none(data.get("order_time")))
+        
+    sql = ("UPDATE food_order SET cust_id=%s, table_id=%s, order_time=%s, status=%s "
+           "WHERE order_id=%s")
+    params = (
+        blank_to_none(data.get("cust_id")),
+        table_id,
+        blank_to_none(data.get("order_time")),
+        status,
+        order_id
+    )
+    res = run_command(sql, params)
+
+    # ล้างรายการเก่าออกแล้วบันทึกรายการใหม่
+    run_command("DELETE FROM order_item WHERE order_id = %s", (order_id,))
+
+    def resolve_item_id(val):
+        if not val:
+            return None
+        val_str = str(val).strip()
+        if val_str.isdigit():
+            return int(val_str)
+        rows = run_query("SELECT item_id FROM menu_item WHERE name = %s", (val_str,))
+        return rows[0]["item_id"] if rows else None
+
+    item1 = resolve_item_id(data.get("item_id") or data.get("item_id1"))
+    qty1 = int(data.get("qty") or data.get("qty1") or 0)
+    if item1 and qty1 > 0:
+        run_command("INSERT INTO order_item (order_id, item_id, qty) VALUES (%s, %s, %s)", (order_id, item1, qty1))
+
+    item2 = resolve_item_id(data.get("item_id2"))
+    qty2 = int(data.get("qty2") or 0)
+    if item2 and qty2 > 0:
+        run_command("INSERT INTO order_item (order_id, item_id, qty) VALUES (%s, %s, %s)", (order_id, item2, qty2))
+
+    return res
+
+
+
+
+
 # ============================================================
 #  REPORT (รายงาน — ใช้ JOIN + GROUP BY + subquery)
 # ============================================================

@@ -347,7 +347,25 @@ const ENTITIES = {
         "type": "textarea"
       }
     ]
-  }
+  },
+  "bills": {
+    "label": "เช็คบิล",
+    "api": "/api/bills",
+    "idKey": "order_id",
+    "columns": [
+      { "key": "order_id", "label": "รหัสออเดอร์" },
+      { "key": "customer_name", "label": "ชื่อลูกค้า" },
+      { "key": "table_id", "label": "รหัสโต๊ะ" },
+      { "key": "order_time", "label": "เวลาสั่งซื้อ" },
+      { "key": "status", "label": "สถานะ" },
+      { "key": "total", "label": "ยอดรวม (บาท)" }
+    ],
+    "search": [
+      { "key": "cust_id", "label": "รหัสลูกค้า", "type": "number" },
+      { "key": "table_id", "label": "รหัสโต๊ะ", "type": "number" }
+    ],
+    "form": []
+  },
 };
 
 
@@ -496,9 +514,11 @@ function renderTable(r) {
   if (rows.length === 0) { setStatus(st, "ไม่พบข้อมูล"); return; }
   setStatus(st, "พบ " + rows.length + " รายการ");
 
-  // 🟢 1. กรณีเป็นหน้า "ชุดคอมโบ" (ซ่อน combo_id ตามแบบที่ 1)
-  if (current === "combos") {
-    // กำหนดหัวตารางเฉพาะหน้าชุดคอมโบ
+  // 🟢 ประกาศ entity ให้ครอบคลุมทั้ง current หรือ currentEntity
+  const entity = typeof current !== "undefined" ? current : (typeof currentEntity !== "undefined" ? currentEntity : "");
+
+  // 🟢 1. กรณีเป็นหน้า "ชุดคอมโบ"
+  if (entity === "combos") {
     head.innerHTML = "<th>item_id</th><th>combo_name</th><th>sub_item_id</th><th>sub_item_name</th><th>sub_price</th><th>amount</th><th>sub_total</th><th class='text-center'>จัดการ</th>";
 
     const itemCounts = {};
@@ -510,33 +530,30 @@ function renderTable(r) {
     let html = "";
 
     rows.forEach((row) => {
-      const id = row[ENTITIES[current].idKey];
+      const idKey = (ENTITIES[entity] && ENTITIES[entity].idKey) ? ENTITIES[entity].idKey : "item_id";
+      const id = row[idKey];
       const isFirstRow = !renderedItems.has(row.item_id);
       const span = itemCounts[row.item_id];
 
-      // เส้นขอบแบ่งกลุ่มคอมโบแต่ละเซ็ต
       const borderStyle = isFirstRow ? "border-top: 2px solid #3b82f6;" : "border-top: 1px solid #e2e8f0;";
 
       html += "<tr style='" + borderStyle + "'>";
-      
-      // ควบรวม item_id และ combo_name เป็นบล็อกหลักฝั่งซ้าย (ซ่อน combo_id ออก)
+
       if (isFirstRow) {
         html += "<td rowspan='" + span + "' style='vertical-align: middle; text-align: center; background-color: #f8fafc;'>" + (row.item_id ?? "-") + "</td>";
         html += "<td rowspan='" + span + "' style='vertical-align: middle; background-color: #f8fafc;'><strong>" + (row.combo_name ?? "-") + "</strong></td>";
       }
 
-      // รายการย่อยตรงกลาง
       html += "<td style='vertical-align: middle; text-align: center;'>" + (row.sub_item_id ?? "-") + "</td>";
       html += "<td style='vertical-align: middle;'>" + (row.sub_item_name ?? "-") + "</td>";
       html += "<td style='vertical-align: middle; text-align: right;'>" + (row.sub_price ?? "-") + "</td>";
       html += "<td style='vertical-align: middle; text-align: center;'>" + (row.amount ?? "-") + "</td>";
       html += "<td style='vertical-align: middle; text-align: right;'>" + (row.sub_total ?? "-") + "</td>";
 
-      // ปุ่มจัดการควบรวมฝั่งขวา
       if (isFirstRow) {
         html += "<td rowspan='" + span + "' style='vertical-align: middle; text-align: center; background-color: #f8fafc;'>" +
-          '<button class="btn sm" onclick="editRow(' + id + ')">แก้ไข</button> ' +
-          '<button class="btn sm del" onclick="deleteRow(' + id + ')">ลบ</button>' +
+          '<button class="btn sm" onclick="editRow(\'' + id + '\')">แก้ไข</button> ' +
+          '<button class="btn sm del" onclick="deleteRow(\'' + id + '\')">ลบ</button>' +
           "</td>";
         renderedItems.add(row.item_id);
       }
@@ -547,19 +564,31 @@ function renderTable(r) {
     body.innerHTML = html;
 
   } else {
-    // 🔵 2. สำหรับหน้าอื่นๆ (ลูกค้า, เมนูอาหาร, ออเดอร์) ดึงหัวตารางและข้อมูลจากโหมดปกติ
+    // 🔵 2. สำหรับหน้าอื่นๆ (ลูกค้า, เมนูอาหาร, ออเดอร์, เช็คบิล ฯลฯ)
     const cols = Object.keys(rows[0]);
     head.innerHTML = cols.map(c => "<th>" + c + "</th>").join("") + "<th>จัดการ</th>";
 
     body.innerHTML = rows.map(row => {
-      const id = row[ENTITIES[current].idKey];
+      const idKey = (ENTITIES[entity] && ENTITIES[entity].idKey) ? ENTITIES[entity].idKey : cols[0];
+      const id = row[idKey] ?? "";
+
+      let actionBtn = "";
+      if (entity === "bills") {
+        let payBtn = "";
+        if (row.status === "open") {
+          payBtn = `<button class="btn sm success" onclick="payBill(${row.order_id})">💵 ชำระเงิน</button> `;
+        }
+        actionBtn = payBtn + `<button class="btn sm primary" onclick="viewBillDetails(${row.order_id})">📋 รายละเอียด</button>`;
+      } else {
+        actionBtn = `<button class="btn sm" onclick="editRow('${id}')">แก้ไข</button> ` +
+                    `<button class="btn sm del" onclick="deleteRow('${id}')">ลบ</button>`;
+      }
+
       return "<tr>" + cols.map(c => "<td>" + (row[c] ?? "-") + "</td>").join("") +
-        '<td><button class="btn sm" onclick="editRow(' + id + ')">แก้ไข</button> ' +
-        '<button class="btn sm del" onclick="deleteRow(' + id + ')">ลบ</button></td></tr>';
+        '<td>' + actionBtn + '</td></tr>';
     }).join("");
   }
 }
-
 // ซ่อนปุ่มสีเขียวเฉพาะเมื่อ currentEntity คือ order_items
 const btnAdd = document.getElementById("btnAdd");
 if (btnAdd) {
@@ -568,4 +597,84 @@ if (btnAdd) {
   } else {
     btnAdd.style.setProperty("display", "inline-block", "important");
   }
+}
+
+// ฟังก์ชันแสดง Modal รายละเอียดบิล
+async function viewBillDetails(orderId) {
+    try {
+        const res = await fetch(`/api/order_items?order_id=${orderId}`);
+        const items = await res.json();
+        
+        let detailHtml = `<h4>รายการอาหารสำหรับออเดอร์ #${orderId}</h4>`;
+        detailHtml += `<table style="width:100%; text-align:left; margin-top:10px; border-collapse: collapse;">
+            <thead>
+                <tr style="border-bottom: 2px solid #ccc;">
+                    <th style="padding: 8px;">รายการ</th>
+                    <th style="padding: 8px; text-align: center;">จำนวน</th>
+                    <th style="padding: 8px; text-align: right;">ราคา/หน่วย</th>
+                </tr>
+            </thead>
+            <tbody>`;
+            
+        let totalSum = 0;
+        const itemList = Array.isArray(items) ? items : (items.data || []);
+
+        itemList.forEach(item => {
+            const price = parseFloat(item.price || 0);
+            const qty = parseInt(item.qty || 0);
+            totalSum += price * qty;
+
+            detailHtml += `<tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 8px;">${item.item_name || item.name || item.item_id}</td>
+                <td style="padding: 8px; text-align: center;">${qty}</td>
+                <td style="padding: 8px; text-align: right;">${price.toFixed(2)}</td>
+            </tr>`;
+        });
+        
+        detailHtml += `</tbody>
+            <tfoot>
+                <tr style="font-weight: bold; background-color: #f8fafc;">
+                    <td colspan="2" style="padding: 10px; text-align: right;">ราคารวมทั้งสิ้น:</td>
+                    <td style="padding: 10px; text-align: right; color: #2563eb;">${totalSum.toFixed(2)} บาท</td>
+                </tr>
+            </tfoot>
+        </table>`;
+        
+        const modal = document.getElementById("modal");
+        const modalTitle = document.getElementById("modalTitle");
+        const formFields = document.getElementById("formFields");
+        const btnSave = document.getElementById("btnSave");
+        
+        if (modal && formFields) {
+            modalTitle.innerText = "รายละเอียดบิล";
+            formFields.innerHTML = detailHtml;
+            if (btnSave) btnSave.style.display = "none";
+            modal.classList.remove("hidden");
+        }
+    } catch (err) {
+        alert("ไม่สามารถดึงข้อมูลรายการอาหารได้");
+    }
+}
+
+// ฟังก์ชันชำระเงิน
+async function payBill(orderId) {
+    if (!confirm(`ยืนยันการชำระเงินสำหรับออเดอร์ #${orderId}?`)) return;
+    
+    try {
+        const res = await fetch(`/api/orders/${orderId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "paid" })
+        });
+        const result = await res.json();
+        if (res.ok) {
+            alert("ชำระเงินเรียบร้อยแล้ว!");
+            const btnSearch = document.getElementById("btnSearch");
+            if (btnSearch) btnSearch.click();
+        } else {
+            alert(result.error || "เกิดข้อผิดพลาดในการชำระเงิน");
+        }
+    } catch (err) {
+        alert("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
+    }
 }

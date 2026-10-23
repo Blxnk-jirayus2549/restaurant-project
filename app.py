@@ -169,6 +169,20 @@ def handle_review_detail(review_id):
         return safe(db.delete_review, review_id)
 
 
+#bills
+# API ค้นหารายการเช็คบิลทั้งหมด (ทั้ง open และ paid)
+@app.route("/api/bills", methods=["GET"])
+def bills_list():
+    filters = {k: v for k, v in request.args.items() if v}
+    return safe(db.search_bills, filters)
+
+# API ดึงรายการอาหารย่อยสำหรับปุ่มรายละเอียดบิล
+@app.route("/api/order_items", methods=["GET"])
+def order_items_list():
+    filters = {k: v for k, v in request.args.items() if v}
+    if "order_id" in filters:
+        return safe(db.get_order_items_by_order_id, filters["order_id"])
+    return safe(db.search_order_items, filters)
 
 
 # ---- รายงาน ----
