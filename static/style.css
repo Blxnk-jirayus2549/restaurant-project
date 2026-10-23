@@ -110,3 +110,9 @@ th, td {
   font-size: 13px;
   border-radius: 6px;
 }
+
+/* ซ่อนปุ่มเพิ่มข้อมูลเฉพาะเมื่อผู้ใช้เลือกแท็บรายการออเดอร์ */
+.tab.active[data-entity="order_items"] ~ #searchContainer #btnAdd,
+body:has(.tab.active[data-entity="order_items"]) #btnAdd {
+  display: none !important;
+}

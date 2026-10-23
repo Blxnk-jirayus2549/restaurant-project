@@ -73,7 +73,7 @@ const ENTITIES = {
           "Main Course",
           "Appetizer",
           "Beverage",
-          "combo"
+          "Combo"
         ]
       }
     ],
@@ -91,7 +91,7 @@ const ENTITIES = {
           "Main Course",
           "Appetizer",
           "Beverage",
-          "combo"
+          "Combo"
         ]
       },
       {
@@ -104,12 +104,13 @@ const ENTITIES = {
         "label": "พร้อมขาย",
         "type": "select",
         "options": [
-          "1",
-          "0"
+          { "value": 1, "label": "มี (พร้อมขาย)" },
+          { "value": 0, "label": "หมด / ยกเลิก" }
         ]
       }
     ]
   },
+
 "orders": {
     "label": "ออเดอร์",
     "api": "/api/orders",
@@ -204,6 +205,34 @@ const ENTITIES = {
     ]
   },
 
+
+//  รายการออเดอร์
+  "order_items": {
+    "label": "รายการออเดอร์",
+    "api": "/api/order-items",
+    "idKey": "order_id",
+    "columns": [
+      { "key": "order_id", "label": "รหัสออเดอร์" },
+      { "key": "cust_name", "label": "ชื่อลูกค้า" },
+      { "key": "item_name", "label": "ชื่อเมนูอาหาร" },
+      { "key": "qty", "label": "จำนวน (ชิ้น)" },
+      { "key": "price", "label": "ราคา/หน่วย (บาท)" },
+      { "key": "subtotal", "label": "ราคารวม (บาท)" }
+    ],
+    "search": [
+      {
+        "key": "cust_name",
+        "label": "ชื่อลูกค้า",
+        "type": "text"
+      },
+      {
+        "key": "order_id",
+        "label": "รหัสออเดอร์",
+        "type": "number"
+      }
+    ],
+    "form": [] // ปล่อยว่างไว้เพื่อไม่ให้แสดงปุ่ม/ฟอร์มเพิ่มข้อมูลใหม่
+  },
 "combos": {
     "label": "ชุดคอมโบ",
     "api": "/api/combos",
@@ -265,7 +294,6 @@ const ENTITIES = {
       }  
    ]
   },
-
   // review
 "ratings": {
     "label": "คะแนนรีวิว",
@@ -529,5 +557,15 @@ function renderTable(r) {
         '<td><button class="btn sm" onclick="editRow(' + id + ')">แก้ไข</button> ' +
         '<button class="btn sm del" onclick="deleteRow(' + id + ')">ลบ</button></td></tr>';
     }).join("");
+  }
+}
+
+// ซ่อนปุ่มสีเขียวเฉพาะเมื่อ currentEntity คือ order_items
+const btnAdd = document.getElementById("btnAdd");
+if (btnAdd) {
+  if (currentEntity === "order_items") {
+    btnAdd.style.setProperty("display", "none", "important");
+  } else {
+    btnAdd.style.setProperty("display", "inline-block", "important");
   }
 }

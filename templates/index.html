@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ระบบร้านอาหาร — Restaurant Ordering</title>
+  <title>ร้านอาหารแบ้งเบสพาเจ๊ง — Restaurant Ordering</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
   <header class="topbar">
-    <div class="brand">🍽️ ระบบร้านอาหาร <span>Restaurant Ordering</span></div>
+    <div class="brand">🍽️ ร้านอาหารแบ้งเบสพาเจ๊ง <span>Restaurant Ordering</span></div>
     <nav><a href="/" class="active">จัดการข้อมูล</a><a href="/report">รายงาน</a></nav>
   </header>
   <main class="container">
@@ -16,6 +16,7 @@
       <button class="tab active" data-entity="customers">ลูกค้า</button>
       <button class="tab" data-entity="items">เมนูอาหาร</button>
       <button class="tab" data-entity="orders">ออเดอร์</button>
+      <button class="tab" data-entity="order_items">รายการออเดอร์</button>
       <button class="tab" data-entity="combos">ชุดคอมโบ</button>
       <button class="tab" data-entity="ratings">คะแนนรีวิว</button>
     </div>

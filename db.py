@@ -83,18 +83,28 @@ def delete_customer(cust_id):
 
 # ---------- เมนูอาหาร (menu_item) ----------
 def search_items(filters):
-    sql = ("SELECT m.item_id, m.name, m.category, "
-               "m.price, m.is_available "
-               "FROM menu_item m "
-               "WHERE 1=1")
+    sql = """
+        SELECT 
+            item_id,
+            name,
+            category,
+            price,
+            CASE 
+                WHEN is_available = 1 THEN 'มี'
+                ELSE 'หมด'
+            END AS is_available
+        FROM menu_item
+        WHERE 1=1
+    """
     params = []
     if filters.get("name"):
-            sql += " AND m.name LIKE %s"
-            params.append("%" + filters["name"] + "%")
+        sql += " AND name LIKE %s"
+        params.append(f"%{filters['name']}%")
     if filters.get("category"):
-            sql += " AND m.category = %s"
-            params.append(filters["category"])
-    sql += " ORDER BY m.item_id"
+        sql += " AND category = %s"
+        params.append(filters["category"])
+        
+    sql += " ORDER BY item_id ASC"
     return run_query(sql, params)
 
 
@@ -253,6 +263,37 @@ def update_order(order_id, data):
 def delete_order(order_id):
     return run_command("DELETE FROM food_order WHERE order_id=%s", (order_id,))
 
+
+# ---- รายการออเดอร์ (order_item) ----
+def search_order_items(filters):
+    sql = """
+        SELECT 
+            oi.order_id,
+            COALESCE(c.name, 'ไม่ระบุชื่อ') AS cust_name,
+            m.name AS item_name,
+            oi.qty,
+            m.price,
+            (oi.qty * m.price) AS subtotal
+        FROM order_item oi
+        INNER JOIN food_order fo ON oi.order_id = fo.order_id
+        INNER JOIN menu_item m ON oi.item_id = m.item_id
+        LEFT JOIN customer c ON fo.cust_id = c.cust_id
+        WHERE 1=1
+    """
+    params = []
+
+    # ค้นหาตามชื่อลูกค้า
+    if filters.get("cust_name"):
+        sql += " AND c.name LIKE %s"
+        params.append(f"%{filters['cust_name']}%")
+
+    # ค้นหาตามรหัสออเดอร์
+    if filters.get("order_id"):
+        sql += " AND oi.order_id = %s"
+        params.append(filters["order_id"])
+
+    sql += " ORDER BY oi.order_id asc, oi.item_id asc"
+    return run_query(sql, params)
 
 # ---------- ชุดคอมโบ (combo) ----------
 
@@ -415,6 +456,7 @@ def delete_combo(combo_id):
         return {"status": "success"}
     return {"status": "error"}
 
+
 # // ---------- รีวิว (review) ----------
 
 def search_reviews(filters):
@@ -561,12 +603,13 @@ def report_daily_sales():
         SELECT 
             DATE(fo.order_time) AS 'วันที่',
             COUNT(DISTINCT fo.order_id) AS 'จำนวนออเดอร์',
+            m.name AS 'ชื่อเมนู',
             SUM(oi.qty) AS 'จำนวนรายการอาหารที่ขาย',
             SUM(oi.qty * m.price) AS 'ยอดขายรวม (บาท)'
         FROM food_order fo
         INNER JOIN order_item oi ON fo.order_id = oi.order_id
         INNER JOIN menu_item m ON oi.item_id = m.item_id
-        GROUP BY DATE(fo.order_time)
+        GROUP BY DATE(fo.order_time), m.name
         ORDER BY DATE(fo.order_time) DESC
     """
     return run_query(sql)
@@ -579,13 +622,14 @@ def report_big_orders():
         SELECT 
             fo.order_id AS 'รหัสออเดอร์',
             COALESCE(c.name, 'ไม่ระบุชื่อ') AS 'ชื่อลูกค้า',
+            m.name AS 'ชื่อเมนู',
             fo.order_time AS 'วัน-เวลาสั่งซื้อ',
             SUM(oi.qty * m.price) AS 'ราคารวม (บาท)'
         FROM food_order fo
         INNER JOIN order_item oi ON fo.order_id = oi.order_id
         INNER JOIN menu_item m ON oi.item_id = m.item_id
         LEFT JOIN customer c ON fo.cust_id = c.cust_id
-        GROUP BY fo.order_id, c.name, fo.order_time
+        GROUP BY fo.order_id, c.name, fo.order_time, m.name
         HAVING SUM(oi.qty * m.price) > 500
         ORDER BY SUM(oi.qty * m.price) DESC
     """
@@ -597,3 +641,4 @@ REPORTS = [
     ("daily-sales",   "💰 ยอดขายรวมต่อวัน (Daily Sales)",   report_daily_sales),
     ("big-orders",    "🧾 ออเดอร์ยอดเกิน 500 บาท (HAVING)", report_big_orders),
 ]
+
