@@ -17,21 +17,6 @@
     <!-- กล่องรายงาน: สร้างจาก db.REPORTS อัตโนมัติ (เพิ่มรายงานที่ db.py ไม่ต้องแก้ไฟล์นี้) -->
     <div id="reports"></div>
   </main>
-  <!-- นำก้อนนี้ไปไว้ใน templates/report.html -->
-<div style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 16px 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
-  <div style="display: flex; gap: 12px; align-items: center;">
-    <label style="font-weight: 600;">ตั้งแต่วันที่:</label>
-    <input type="date" id="startDate" style="padding: 6px 12px; border: 1px solid #ccc; border-radius: 6px;">
-    
-    <label style="font-weight: 600;">ถึง:</label>
-    <input type="date" id="endDate" style="padding: 6px 12px; border: 1px solid #ccc; border-radius: 6px;">
-    
-  </div>
-
-  <div>
-    <button class="btn primary" onclick="window.print()">🖨️ พิมพ์รายงาน / PDF</button>
-  </div>
-</div>
   <script src="{{ url_for('static', filename='report.js') }}"></script>
 </body>
 </html>
