@@ -272,7 +272,7 @@ const ENTITIES = {
       },
       {
         "key": "sub_item_id2",
-        "label": "เลือกเมนูย่อยที่ 2 (ถ้ามี)",
+        "label": "เลือกเมนูย่อยที่ 2",
         "type": "select",
         "optionsFrom": { "api": "/api/menu-items", "value": "item_id", "label": "name" }
       },
@@ -283,7 +283,7 @@ const ENTITIES = {
       },
       {
         "key": "sub_item_id3",
-        "label": "เลือกเมนูย่อยที่ 3 (ถ้ามี)",
+        "label": "เลือกเมนูย่อยที่ 3",
         "type": "select",
         "optionsFrom": { "api": "/api/menu-items", "value": "item_id", "label": "name" }
       },
